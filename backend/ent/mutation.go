@@ -5578,6 +5578,10 @@ type AnnouncementMutation struct {
 	id            *int64
 	title         *string
 	content       *string
+	title_zh      *string
+	title_en      *string
+	content_zh    *string
+	content_en    *string
 	status        *string
 	notify_mode   *string
 	targeting     *domain.AnnouncementTargeting
@@ -5766,6 +5770,150 @@ func (m *AnnouncementMutation) OldContent(ctx context.Context) (v string, err er
 // ResetContent resets all changes to the "content" field.
 func (m *AnnouncementMutation) ResetContent() {
 	m.content = nil
+}
+
+// SetTitleZh sets the "title_zh" field.
+func (m *AnnouncementMutation) SetTitleZh(s string) {
+	m.title_zh = &s
+}
+
+// TitleZh returns the value of the "title_zh" field in the mutation.
+func (m *AnnouncementMutation) TitleZh() (r string, exists bool) {
+	v := m.title_zh
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTitleZh returns the old "title_zh" field's value of the Announcement entity.
+// If the Announcement object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AnnouncementMutation) OldTitleZh(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTitleZh is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTitleZh requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTitleZh: %w", err)
+	}
+	return oldValue.TitleZh, nil
+}
+
+// ResetTitleZh resets all changes to the "title_zh" field.
+func (m *AnnouncementMutation) ResetTitleZh() {
+	m.title_zh = nil
+}
+
+// SetTitleEn sets the "title_en" field.
+func (m *AnnouncementMutation) SetTitleEn(s string) {
+	m.title_en = &s
+}
+
+// TitleEn returns the value of the "title_en" field in the mutation.
+func (m *AnnouncementMutation) TitleEn() (r string, exists bool) {
+	v := m.title_en
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTitleEn returns the old "title_en" field's value of the Announcement entity.
+// If the Announcement object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AnnouncementMutation) OldTitleEn(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTitleEn is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTitleEn requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTitleEn: %w", err)
+	}
+	return oldValue.TitleEn, nil
+}
+
+// ResetTitleEn resets all changes to the "title_en" field.
+func (m *AnnouncementMutation) ResetTitleEn() {
+	m.title_en = nil
+}
+
+// SetContentZh sets the "content_zh" field.
+func (m *AnnouncementMutation) SetContentZh(s string) {
+	m.content_zh = &s
+}
+
+// ContentZh returns the value of the "content_zh" field in the mutation.
+func (m *AnnouncementMutation) ContentZh() (r string, exists bool) {
+	v := m.content_zh
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldContentZh returns the old "content_zh" field's value of the Announcement entity.
+// If the Announcement object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AnnouncementMutation) OldContentZh(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldContentZh is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldContentZh requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldContentZh: %w", err)
+	}
+	return oldValue.ContentZh, nil
+}
+
+// ResetContentZh resets all changes to the "content_zh" field.
+func (m *AnnouncementMutation) ResetContentZh() {
+	m.content_zh = nil
+}
+
+// SetContentEn sets the "content_en" field.
+func (m *AnnouncementMutation) SetContentEn(s string) {
+	m.content_en = &s
+}
+
+// ContentEn returns the value of the "content_en" field in the mutation.
+func (m *AnnouncementMutation) ContentEn() (r string, exists bool) {
+	v := m.content_en
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldContentEn returns the old "content_en" field's value of the Announcement entity.
+// If the Announcement object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AnnouncementMutation) OldContentEn(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldContentEn is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldContentEn requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldContentEn: %w", err)
+	}
+	return oldValue.ContentEn, nil
+}
+
+// ResetContentEn resets all changes to the "content_en" field.
+func (m *AnnouncementMutation) ResetContentEn() {
+	m.content_en = nil
 }
 
 // SetStatus sets the "status" field.
@@ -6287,12 +6435,24 @@ func (m *AnnouncementMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *AnnouncementMutation) Fields() []string {
-	fields := make([]string, 0, 11)
+	fields := make([]string, 0, 15)
 	if m.title != nil {
 		fields = append(fields, announcement.FieldTitle)
 	}
 	if m.content != nil {
 		fields = append(fields, announcement.FieldContent)
+	}
+	if m.title_zh != nil {
+		fields = append(fields, announcement.FieldTitleZh)
+	}
+	if m.title_en != nil {
+		fields = append(fields, announcement.FieldTitleEn)
+	}
+	if m.content_zh != nil {
+		fields = append(fields, announcement.FieldContentZh)
+	}
+	if m.content_en != nil {
+		fields = append(fields, announcement.FieldContentEn)
 	}
 	if m.status != nil {
 		fields = append(fields, announcement.FieldStatus)
@@ -6333,6 +6493,14 @@ func (m *AnnouncementMutation) Field(name string) (ent.Value, bool) {
 		return m.Title()
 	case announcement.FieldContent:
 		return m.Content()
+	case announcement.FieldTitleZh:
+		return m.TitleZh()
+	case announcement.FieldTitleEn:
+		return m.TitleEn()
+	case announcement.FieldContentZh:
+		return m.ContentZh()
+	case announcement.FieldContentEn:
+		return m.ContentEn()
 	case announcement.FieldStatus:
 		return m.Status()
 	case announcement.FieldNotifyMode:
@@ -6364,6 +6532,14 @@ func (m *AnnouncementMutation) OldField(ctx context.Context, name string) (ent.V
 		return m.OldTitle(ctx)
 	case announcement.FieldContent:
 		return m.OldContent(ctx)
+	case announcement.FieldTitleZh:
+		return m.OldTitleZh(ctx)
+	case announcement.FieldTitleEn:
+		return m.OldTitleEn(ctx)
+	case announcement.FieldContentZh:
+		return m.OldContentZh(ctx)
+	case announcement.FieldContentEn:
+		return m.OldContentEn(ctx)
 	case announcement.FieldStatus:
 		return m.OldStatus(ctx)
 	case announcement.FieldNotifyMode:
@@ -6404,6 +6580,34 @@ func (m *AnnouncementMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetContent(v)
+		return nil
+	case announcement.FieldTitleZh:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTitleZh(v)
+		return nil
+	case announcement.FieldTitleEn:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTitleEn(v)
+		return nil
+	case announcement.FieldContentZh:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetContentZh(v)
+		return nil
+	case announcement.FieldContentEn:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetContentEn(v)
 		return nil
 	case announcement.FieldStatus:
 		v, ok := value.(string)
@@ -6582,6 +6786,18 @@ func (m *AnnouncementMutation) ResetField(name string) error {
 		return nil
 	case announcement.FieldContent:
 		m.ResetContent()
+		return nil
+	case announcement.FieldTitleZh:
+		m.ResetTitleZh()
+		return nil
+	case announcement.FieldTitleEn:
+		m.ResetTitleEn()
+		return nil
+	case announcement.FieldContentZh:
+		m.ResetContentZh()
+		return nil
+	case announcement.FieldContentEn:
+		m.ResetContentEn()
 		return nil
 	case announcement.FieldStatus:
 		m.ResetStatus()

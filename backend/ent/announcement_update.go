@@ -58,6 +58,62 @@ func (_u *AnnouncementUpdate) SetNillableContent(v *string) *AnnouncementUpdate 
 	return _u
 }
 
+// SetTitleZh sets the "title_zh" field.
+func (_u *AnnouncementUpdate) SetTitleZh(v string) *AnnouncementUpdate {
+	_u.mutation.SetTitleZh(v)
+	return _u
+}
+
+// SetNillableTitleZh sets the "title_zh" field if the given value is not nil.
+func (_u *AnnouncementUpdate) SetNillableTitleZh(v *string) *AnnouncementUpdate {
+	if v != nil {
+		_u.SetTitleZh(*v)
+	}
+	return _u
+}
+
+// SetTitleEn sets the "title_en" field.
+func (_u *AnnouncementUpdate) SetTitleEn(v string) *AnnouncementUpdate {
+	_u.mutation.SetTitleEn(v)
+	return _u
+}
+
+// SetNillableTitleEn sets the "title_en" field if the given value is not nil.
+func (_u *AnnouncementUpdate) SetNillableTitleEn(v *string) *AnnouncementUpdate {
+	if v != nil {
+		_u.SetTitleEn(*v)
+	}
+	return _u
+}
+
+// SetContentZh sets the "content_zh" field.
+func (_u *AnnouncementUpdate) SetContentZh(v string) *AnnouncementUpdate {
+	_u.mutation.SetContentZh(v)
+	return _u
+}
+
+// SetNillableContentZh sets the "content_zh" field if the given value is not nil.
+func (_u *AnnouncementUpdate) SetNillableContentZh(v *string) *AnnouncementUpdate {
+	if v != nil {
+		_u.SetContentZh(*v)
+	}
+	return _u
+}
+
+// SetContentEn sets the "content_en" field.
+func (_u *AnnouncementUpdate) SetContentEn(v string) *AnnouncementUpdate {
+	_u.mutation.SetContentEn(v)
+	return _u
+}
+
+// SetNillableContentEn sets the "content_en" field if the given value is not nil.
+func (_u *AnnouncementUpdate) SetNillableContentEn(v *string) *AnnouncementUpdate {
+	if v != nil {
+		_u.SetContentEn(*v)
+	}
+	return _u
+}
+
 // SetStatus sets the "status" field.
 func (_u *AnnouncementUpdate) SetStatus(v string) *AnnouncementUpdate {
 	_u.mutation.SetStatus(v)
@@ -295,6 +351,16 @@ func (_u *AnnouncementUpdate) check() error {
 			return &ValidationError{Name: "content", err: fmt.Errorf(`ent: validator failed for field "Announcement.content": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.TitleZh(); ok {
+		if err := announcement.TitleZhValidator(v); err != nil {
+			return &ValidationError{Name: "title_zh", err: fmt.Errorf(`ent: validator failed for field "Announcement.title_zh": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.TitleEn(); ok {
+		if err := announcement.TitleEnValidator(v); err != nil {
+			return &ValidationError{Name: "title_en", err: fmt.Errorf(`ent: validator failed for field "Announcement.title_en": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Status(); ok {
 		if err := announcement.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Announcement.status": %w`, err)}
@@ -325,6 +391,18 @@ func (_u *AnnouncementUpdate) sqlSave(ctx context.Context) (_node int, err error
 	}
 	if value, ok := _u.mutation.Content(); ok {
 		_spec.SetField(announcement.FieldContent, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.TitleZh(); ok {
+		_spec.SetField(announcement.FieldTitleZh, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.TitleEn(); ok {
+		_spec.SetField(announcement.FieldTitleEn, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.ContentZh(); ok {
+		_spec.SetField(announcement.FieldContentZh, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.ContentEn(); ok {
+		_spec.SetField(announcement.FieldContentEn, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(announcement.FieldStatus, field.TypeString, value)
@@ -460,6 +538,62 @@ func (_u *AnnouncementUpdateOne) SetContent(v string) *AnnouncementUpdateOne {
 func (_u *AnnouncementUpdateOne) SetNillableContent(v *string) *AnnouncementUpdateOne {
 	if v != nil {
 		_u.SetContent(*v)
+	}
+	return _u
+}
+
+// SetTitleZh sets the "title_zh" field.
+func (_u *AnnouncementUpdateOne) SetTitleZh(v string) *AnnouncementUpdateOne {
+	_u.mutation.SetTitleZh(v)
+	return _u
+}
+
+// SetNillableTitleZh sets the "title_zh" field if the given value is not nil.
+func (_u *AnnouncementUpdateOne) SetNillableTitleZh(v *string) *AnnouncementUpdateOne {
+	if v != nil {
+		_u.SetTitleZh(*v)
+	}
+	return _u
+}
+
+// SetTitleEn sets the "title_en" field.
+func (_u *AnnouncementUpdateOne) SetTitleEn(v string) *AnnouncementUpdateOne {
+	_u.mutation.SetTitleEn(v)
+	return _u
+}
+
+// SetNillableTitleEn sets the "title_en" field if the given value is not nil.
+func (_u *AnnouncementUpdateOne) SetNillableTitleEn(v *string) *AnnouncementUpdateOne {
+	if v != nil {
+		_u.SetTitleEn(*v)
+	}
+	return _u
+}
+
+// SetContentZh sets the "content_zh" field.
+func (_u *AnnouncementUpdateOne) SetContentZh(v string) *AnnouncementUpdateOne {
+	_u.mutation.SetContentZh(v)
+	return _u
+}
+
+// SetNillableContentZh sets the "content_zh" field if the given value is not nil.
+func (_u *AnnouncementUpdateOne) SetNillableContentZh(v *string) *AnnouncementUpdateOne {
+	if v != nil {
+		_u.SetContentZh(*v)
+	}
+	return _u
+}
+
+// SetContentEn sets the "content_en" field.
+func (_u *AnnouncementUpdateOne) SetContentEn(v string) *AnnouncementUpdateOne {
+	_u.mutation.SetContentEn(v)
+	return _u
+}
+
+// SetNillableContentEn sets the "content_en" field if the given value is not nil.
+func (_u *AnnouncementUpdateOne) SetNillableContentEn(v *string) *AnnouncementUpdateOne {
+	if v != nil {
+		_u.SetContentEn(*v)
 	}
 	return _u
 }
@@ -714,6 +848,16 @@ func (_u *AnnouncementUpdateOne) check() error {
 			return &ValidationError{Name: "content", err: fmt.Errorf(`ent: validator failed for field "Announcement.content": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.TitleZh(); ok {
+		if err := announcement.TitleZhValidator(v); err != nil {
+			return &ValidationError{Name: "title_zh", err: fmt.Errorf(`ent: validator failed for field "Announcement.title_zh": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.TitleEn(); ok {
+		if err := announcement.TitleEnValidator(v); err != nil {
+			return &ValidationError{Name: "title_en", err: fmt.Errorf(`ent: validator failed for field "Announcement.title_en": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Status(); ok {
 		if err := announcement.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Announcement.status": %w`, err)}
@@ -761,6 +905,18 @@ func (_u *AnnouncementUpdateOne) sqlSave(ctx context.Context) (_node *Announceme
 	}
 	if value, ok := _u.mutation.Content(); ok {
 		_spec.SetField(announcement.FieldContent, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.TitleZh(); ok {
+		_spec.SetField(announcement.FieldTitleZh, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.TitleEn(); ok {
+		_spec.SetField(announcement.FieldTitleEn, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.ContentZh(); ok {
+		_spec.SetField(announcement.FieldContentZh, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.ContentEn(); ok {
+		_spec.SetField(announcement.FieldContentEn, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(announcement.FieldStatus, field.TypeString, value)

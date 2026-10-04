@@ -48,10 +48,10 @@
           default-sort-order="desc"
           @sort="handleSort"
         >
-          <template #cell-title="{ value, row }">
+          <template #cell-title="{ row }">
             <div class="min-w-0">
               <div class="flex items-center gap-2">
-                <span class="truncate font-medium text-gray-900 dark:text-white">{{ value }}</span>
+                <span class="truncate font-medium text-gray-900 dark:text-white">{{ localizedTitle(row) }}</span>
               </div>
               <div class="mt-1 flex items-center gap-2 text-xs text-gray-500 dark:text-dark-400">
                 <span>#{{ row.id }}</span>
@@ -176,14 +176,26 @@
       @close="closeEdit"
     >
       <form id="announcement-form" @submit.prevent="handleSave" class="space-y-4">
-        <div>
-          <label class="input-label">{{ t('admin.announcements.form.title') }}</label>
-          <input v-model="form.title" type="text" class="input" required />
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div>
+            <label class="input-label">{{ t('admin.announcements.form.titleZh') }}</label>
+            <input v-model="form.title_zh" type="text" class="input" required />
+          </div>
+          <div>
+            <label class="input-label">{{ t('admin.announcements.form.titleEn') }}</label>
+            <input v-model="form.title_en" type="text" class="input" required />
+          </div>
         </div>
 
-        <div>
-          <label class="input-label">{{ t('admin.announcements.form.content') }}</label>
-          <textarea v-model="form.content" rows="6" class="input" required></textarea>
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div>
+            <label class="input-label">{{ t('admin.announcements.form.contentZh') }}</label>
+            <textarea v-model="form.content_zh" rows="6" class="input" required></textarea>
+          </div>
+          <div>
+            <label class="input-label">{{ t('admin.announcements.form.contentEn') }}</label>
+            <textarea v-model="form.content_en" rows="6" class="input" required></textarea>
+          </div>
         </div>
 
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -263,6 +275,7 @@ import { useAppStore } from '@/stores/app'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import { adminAPI } from '@/api/admin'
 import { formatDateTime, formatDateTimeLocalInput, parseDateTimeLocalInput } from '@/utils/format'
+import { localizedAnnouncementTitle } from '@/utils/announcementLocalization'
 import type { AdminGroup, Announcement, AnnouncementTargeting } from '@/types'
 import type { Column } from '@/components/common/types'
 
@@ -280,7 +293,7 @@ import AnnouncementTargetingEditor from '@/components/admin/announcements/Announ
 import AnnouncementReadStatusDialog from '@/components/admin/announcements/AnnouncementReadStatusDialog.vue'
 import AnnouncementPopup from '@/components/common/AnnouncementPopup.vue'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const appStore = useAppStore()
 
 const announcements = ref<Announcement[]>([])
@@ -428,8 +441,10 @@ const editingAnnouncement = ref<Announcement | null>(null)
 const isEditing = computed(() => !!editingAnnouncement.value)
 
 const form = reactive({
-  title: '',
-  content: '',
+  title_zh: '',
+  title_en: '',
+  content_zh: '',
+  content_en: '',
   status: 'draft',
   notify_mode: 'silent',
   starts_at_str: '',
@@ -450,8 +465,10 @@ async function loadSubscriptionGroups() {
 }
 
 function resetForm() {
-  form.title = ''
-  form.content = ''
+  form.title_zh = ''
+  form.title_en = ''
+  form.content_zh = ''
+  form.content_en = ''
   form.status = 'draft'
   form.notify_mode = 'silent'
   form.starts_at_str = ''
@@ -460,8 +477,10 @@ function resetForm() {
 }
 
 function fillFormFromAnnouncement(a: Announcement) {
-  form.title = a.title
-  form.content = a.content
+  form.title_zh = a.title_zh || a.title
+  form.title_en = a.title_en || a.title
+  form.content_zh = a.content_zh || a.content
+  form.content_en = a.content_en || a.content
   form.status = a.status
   form.notify_mode = a.notify_mode || 'silent'
 
@@ -494,8 +513,12 @@ function buildCreatePayload() {
   const endsAt = parseDateTimeLocalInput(form.ends_at_str)
 
   return {
-    title: form.title,
-    content: form.content,
+    title: form.title_zh,
+    content: form.content_zh,
+    title_zh: form.title_zh,
+    title_en: form.title_en,
+    content_zh: form.content_zh,
+    content_en: form.content_en,
     status: form.status as any,
     notify_mode: form.notify_mode as any,
     targeting: form.targeting,
@@ -507,8 +530,21 @@ function buildCreatePayload() {
 function buildUpdatePayload(original: Announcement) {
   const payload: any = {}
 
-  if (form.title !== original.title) payload.title = form.title
-  if (form.content !== original.content) payload.content = form.content
+  const originalTitleZh = original.title_zh || original.title
+  const originalTitleEn = original.title_en || original.title
+  const originalContentZh = original.content_zh || original.content
+  const originalContentEn = original.content_en || original.content
+
+  if (form.title_zh !== originalTitleZh) {
+    payload.title = form.title_zh
+    payload.title_zh = form.title_zh
+  }
+  if (form.content_zh !== originalContentZh) {
+    payload.content = form.content_zh
+    payload.content_zh = form.content_zh
+  }
+  if (form.title_en !== originalTitleEn) payload.title_en = form.title_en
+  if (form.content_en !== originalContentEn) payload.content_en = form.content_en
   if (form.status !== original.status) payload.status = form.status
   if (form.notify_mode !== (original.notify_mode || 'silent')) payload.notify_mode = form.notify_mode
 
@@ -532,6 +568,10 @@ function buildUpdatePayload(original: Announcement) {
   }
 
   return payload
+}
+
+function localizedTitle(announcement: Announcement): string {
+  return localizedAnnouncementTitle(announcement, locale.value)
 }
 
 async function handleSave() {

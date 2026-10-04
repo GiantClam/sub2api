@@ -163,3 +163,26 @@ func TestCheckoutRechargeTiersFiltersUnavailableAmountsAndDisabledCatalog(t *tes
 	require.NotNil(t, BuildCheckoutRechargeTiers(nil, nil))
 	require.Empty(t, BuildCheckoutRechargeTiers(&PaymentConfig{Enabled: true}, map[string]MethodLimits{"alipay": {Currency: "CNY"}}))
 }
+
+func TestCheckoutRechargeTiersPreservesNativeRechargePromotions(t *testing.T) {
+	tier := rechargeTierFixture()
+	methods := map[string]MethodLimits{"alipay": {Currency: "CNY", SingleMin: 2, SingleMax: 4}}
+	for _, test := range []struct {
+		mode                string
+		wantPay, wantCredit float64
+	}{
+		{RechargeBonusModeBonus, 3.03, 7.2},
+		{RechargeBonusModeDiscount, 2.43, 6},
+	} {
+		t.Run(test.mode, func(t *testing.T) {
+			cfg := &PaymentConfig{
+				Enabled: true, BalanceRechargeMultiplier: 2, RechargeFeeRate: 1,
+				RechargeTiers: []RechargeTier{tier}, RechargeBonusMode: test.mode,
+				RechargeBonusTiers: []RechargeBonusTier{{MinAmount: 3, BonusPercent: 20}},
+			}
+			got := BuildCheckoutRechargeTiers(cfg, methods)
+			require.Len(t, got, 1)
+			require.Equal(t, []RechargePaymentOption{{PaymentType: "alipay", Currency: "CNY", Amount: 3, PayAmount: test.wantPay, CreditedBalance: test.wantCredit}}, got[0].PaymentOptions)
+		})
+	}
+}

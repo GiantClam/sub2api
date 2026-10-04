@@ -10,6 +10,10 @@ type Announcement struct {
 	ID         int64  `json:"id"`
 	Title      string `json:"title"`
 	Content    string `json:"content"`
+	TitleZh    string `json:"title_zh,omitempty"`
+	TitleEn    string `json:"title_en,omitempty"`
+	ContentZh  string `json:"content_zh,omitempty"`
+	ContentEn  string `json:"content_en,omitempty"`
 	Status     string `json:"status"`
 	NotifyMode string `json:"notify_mode"`
 
@@ -29,6 +33,10 @@ type UserAnnouncement struct {
 	ID         int64  `json:"id"`
 	Title      string `json:"title"`
 	Content    string `json:"content"`
+	TitleZh    string `json:"title_zh,omitempty"`
+	TitleEn    string `json:"title_en,omitempty"`
+	ContentZh  string `json:"content_zh,omitempty"`
+	ContentEn  string `json:"content_en,omitempty"`
 	NotifyMode string `json:"notify_mode"`
 
 	StartsAt *time.Time `json:"starts_at,omitempty"`
@@ -48,6 +56,10 @@ func AnnouncementFromService(a *service.Announcement) *Announcement {
 		ID:         a.ID,
 		Title:      a.Title,
 		Content:    a.Content,
+		TitleZh:    a.TitleZh,
+		TitleEn:    a.TitleEn,
+		ContentZh:  a.ContentZh,
+		ContentEn:  a.ContentEn,
 		Status:     a.Status,
 		NotifyMode: a.NotifyMode,
 		Targeting:  a.Targeting,
@@ -68,6 +80,10 @@ func UserAnnouncementFromService(a *service.UserAnnouncement) *UserAnnouncement 
 		ID:         a.Announcement.ID,
 		Title:      a.Announcement.Title,
 		Content:    a.Announcement.Content,
+		TitleZh:    a.Announcement.TitleZh,
+		TitleEn:    a.Announcement.TitleEn,
+		ContentZh:  a.Announcement.ContentZh,
+		ContentEn:  a.Announcement.ContentEn,
 		NotifyMode: a.Announcement.NotifyMode,
 		StartsAt:   a.Announcement.StartsAt,
 		EndsAt:     a.Announcement.EndsAt,

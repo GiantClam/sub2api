@@ -203,6 +203,10 @@ type Announcement struct {
 	ID         int64
 	Title      string
 	Content    string
+	TitleZh    string
+	TitleEn    string
+	ContentZh  string
+	ContentEn  string
 	Status     string
 	NotifyMode string
 	Targeting  AnnouncementTargeting

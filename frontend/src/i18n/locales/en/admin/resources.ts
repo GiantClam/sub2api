@@ -405,6 +405,10 @@ export default {
       form: {
         title: 'Title',
         content: 'Content (Markdown supported)',
+        titleZh: 'Chinese title',
+        titleEn: 'English title',
+        contentZh: 'Chinese content (Markdown supported)',
+        contentEn: 'English content (Markdown supported)',
         status: 'Status',
         notifyMode: 'Notify Mode',
         notifyModeHint: 'Popup mode will show a popup notification to users',

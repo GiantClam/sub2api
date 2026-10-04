@@ -35,7 +35,7 @@
 
               <!-- Title -->
               <h2 class="mb-2 text-2xl font-bold leading-tight text-gray-900 dark:text-white">
-                {{ displayedAnnouncement.title }}
+                {{ displayedTitle }}
               </h2>
 
               <!-- Time -->
@@ -93,11 +93,12 @@ import { useI18n } from 'vue-i18n'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import { useAnnouncementStore } from '@/stores/announcements'
+import { localizedAnnouncementContent, localizedAnnouncementTitle } from '@/utils/announcementLocalization'
 import { formatRelativeWithDateTime } from '@/utils/format'
 import type { Announcement, UserAnnouncement } from '@/types'
 import '@/styles/announcement-markdown.css'
 
-type PreviewAnnouncement = Pick<Announcement | UserAnnouncement, 'title' | 'content' | 'created_at'>
+type PreviewAnnouncement = Pick<Announcement | UserAnnouncement, 'title' | 'content' | 'title_zh' | 'title_en' | 'content_zh' | 'content_en' | 'created_at'>
 
 const props = withDefaults(defineProps<{
   announcement?: PreviewAnnouncement | null
@@ -111,11 +112,12 @@ const emit = defineEmits<{
   close: []
 }>()
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const announcementStore = useAnnouncementStore()
 const displayedAnnouncement = computed(() => (
   props.preview ? props.announcement : announcementStore.currentPopup
 ))
+const displayedTitle = computed(() => localizedAnnouncementTitle(displayedAnnouncement.value, locale.value))
 
 marked.setOptions({
   breaks: true,
@@ -123,7 +125,7 @@ marked.setOptions({
 })
 
 const renderedContent = computed(() => {
-  const content = displayedAnnouncement.value?.content
+  const content = localizedAnnouncementContent(displayedAnnouncement.value, locale.value)
   if (!content) return ''
   const html = marked.parse(content) as string
   return DOMPurify.sanitize(html)

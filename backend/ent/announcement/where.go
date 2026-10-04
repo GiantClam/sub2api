@@ -65,6 +65,26 @@ func Content(v string) predicate.Announcement {
 	return predicate.Announcement(sql.FieldEQ(FieldContent, v))
 }
 
+// TitleZh applies equality check predicate on the "title_zh" field. It's identical to TitleZhEQ.
+func TitleZh(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldEQ(FieldTitleZh, v))
+}
+
+// TitleEn applies equality check predicate on the "title_en" field. It's identical to TitleEnEQ.
+func TitleEn(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldEQ(FieldTitleEn, v))
+}
+
+// ContentZh applies equality check predicate on the "content_zh" field. It's identical to ContentZhEQ.
+func ContentZh(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldEQ(FieldContentZh, v))
+}
+
+// ContentEn applies equality check predicate on the "content_en" field. It's identical to ContentEnEQ.
+func ContentEn(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldEQ(FieldContentEn, v))
+}
+
 // Status applies equality check predicate on the "status" field. It's identical to StatusEQ.
 func Status(v string) predicate.Announcement {
 	return predicate.Announcement(sql.FieldEQ(FieldStatus, v))
@@ -233,6 +253,266 @@ func ContentEqualFold(v string) predicate.Announcement {
 // ContentContainsFold applies the ContainsFold predicate on the "content" field.
 func ContentContainsFold(v string) predicate.Announcement {
 	return predicate.Announcement(sql.FieldContainsFold(FieldContent, v))
+}
+
+// TitleZhEQ applies the EQ predicate on the "title_zh" field.
+func TitleZhEQ(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldEQ(FieldTitleZh, v))
+}
+
+// TitleZhNEQ applies the NEQ predicate on the "title_zh" field.
+func TitleZhNEQ(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldNEQ(FieldTitleZh, v))
+}
+
+// TitleZhIn applies the In predicate on the "title_zh" field.
+func TitleZhIn(vs ...string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldIn(FieldTitleZh, vs...))
+}
+
+// TitleZhNotIn applies the NotIn predicate on the "title_zh" field.
+func TitleZhNotIn(vs ...string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldNotIn(FieldTitleZh, vs...))
+}
+
+// TitleZhGT applies the GT predicate on the "title_zh" field.
+func TitleZhGT(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldGT(FieldTitleZh, v))
+}
+
+// TitleZhGTE applies the GTE predicate on the "title_zh" field.
+func TitleZhGTE(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldGTE(FieldTitleZh, v))
+}
+
+// TitleZhLT applies the LT predicate on the "title_zh" field.
+func TitleZhLT(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldLT(FieldTitleZh, v))
+}
+
+// TitleZhLTE applies the LTE predicate on the "title_zh" field.
+func TitleZhLTE(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldLTE(FieldTitleZh, v))
+}
+
+// TitleZhContains applies the Contains predicate on the "title_zh" field.
+func TitleZhContains(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldContains(FieldTitleZh, v))
+}
+
+// TitleZhHasPrefix applies the HasPrefix predicate on the "title_zh" field.
+func TitleZhHasPrefix(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldHasPrefix(FieldTitleZh, v))
+}
+
+// TitleZhHasSuffix applies the HasSuffix predicate on the "title_zh" field.
+func TitleZhHasSuffix(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldHasSuffix(FieldTitleZh, v))
+}
+
+// TitleZhEqualFold applies the EqualFold predicate on the "title_zh" field.
+func TitleZhEqualFold(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldEqualFold(FieldTitleZh, v))
+}
+
+// TitleZhContainsFold applies the ContainsFold predicate on the "title_zh" field.
+func TitleZhContainsFold(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldContainsFold(FieldTitleZh, v))
+}
+
+// TitleEnEQ applies the EQ predicate on the "title_en" field.
+func TitleEnEQ(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldEQ(FieldTitleEn, v))
+}
+
+// TitleEnNEQ applies the NEQ predicate on the "title_en" field.
+func TitleEnNEQ(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldNEQ(FieldTitleEn, v))
+}
+
+// TitleEnIn applies the In predicate on the "title_en" field.
+func TitleEnIn(vs ...string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldIn(FieldTitleEn, vs...))
+}
+
+// TitleEnNotIn applies the NotIn predicate on the "title_en" field.
+func TitleEnNotIn(vs ...string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldNotIn(FieldTitleEn, vs...))
+}
+
+// TitleEnGT applies the GT predicate on the "title_en" field.
+func TitleEnGT(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldGT(FieldTitleEn, v))
+}
+
+// TitleEnGTE applies the GTE predicate on the "title_en" field.
+func TitleEnGTE(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldGTE(FieldTitleEn, v))
+}
+
+// TitleEnLT applies the LT predicate on the "title_en" field.
+func TitleEnLT(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldLT(FieldTitleEn, v))
+}
+
+// TitleEnLTE applies the LTE predicate on the "title_en" field.
+func TitleEnLTE(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldLTE(FieldTitleEn, v))
+}
+
+// TitleEnContains applies the Contains predicate on the "title_en" field.
+func TitleEnContains(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldContains(FieldTitleEn, v))
+}
+
+// TitleEnHasPrefix applies the HasPrefix predicate on the "title_en" field.
+func TitleEnHasPrefix(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldHasPrefix(FieldTitleEn, v))
+}
+
+// TitleEnHasSuffix applies the HasSuffix predicate on the "title_en" field.
+func TitleEnHasSuffix(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldHasSuffix(FieldTitleEn, v))
+}
+
+// TitleEnEqualFold applies the EqualFold predicate on the "title_en" field.
+func TitleEnEqualFold(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldEqualFold(FieldTitleEn, v))
+}
+
+// TitleEnContainsFold applies the ContainsFold predicate on the "title_en" field.
+func TitleEnContainsFold(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldContainsFold(FieldTitleEn, v))
+}
+
+// ContentZhEQ applies the EQ predicate on the "content_zh" field.
+func ContentZhEQ(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldEQ(FieldContentZh, v))
+}
+
+// ContentZhNEQ applies the NEQ predicate on the "content_zh" field.
+func ContentZhNEQ(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldNEQ(FieldContentZh, v))
+}
+
+// ContentZhIn applies the In predicate on the "content_zh" field.
+func ContentZhIn(vs ...string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldIn(FieldContentZh, vs...))
+}
+
+// ContentZhNotIn applies the NotIn predicate on the "content_zh" field.
+func ContentZhNotIn(vs ...string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldNotIn(FieldContentZh, vs...))
+}
+
+// ContentZhGT applies the GT predicate on the "content_zh" field.
+func ContentZhGT(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldGT(FieldContentZh, v))
+}
+
+// ContentZhGTE applies the GTE predicate on the "content_zh" field.
+func ContentZhGTE(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldGTE(FieldContentZh, v))
+}
+
+// ContentZhLT applies the LT predicate on the "content_zh" field.
+func ContentZhLT(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldLT(FieldContentZh, v))
+}
+
+// ContentZhLTE applies the LTE predicate on the "content_zh" field.
+func ContentZhLTE(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldLTE(FieldContentZh, v))
+}
+
+// ContentZhContains applies the Contains predicate on the "content_zh" field.
+func ContentZhContains(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldContains(FieldContentZh, v))
+}
+
+// ContentZhHasPrefix applies the HasPrefix predicate on the "content_zh" field.
+func ContentZhHasPrefix(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldHasPrefix(FieldContentZh, v))
+}
+
+// ContentZhHasSuffix applies the HasSuffix predicate on the "content_zh" field.
+func ContentZhHasSuffix(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldHasSuffix(FieldContentZh, v))
+}
+
+// ContentZhEqualFold applies the EqualFold predicate on the "content_zh" field.
+func ContentZhEqualFold(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldEqualFold(FieldContentZh, v))
+}
+
+// ContentZhContainsFold applies the ContainsFold predicate on the "content_zh" field.
+func ContentZhContainsFold(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldContainsFold(FieldContentZh, v))
+}
+
+// ContentEnEQ applies the EQ predicate on the "content_en" field.
+func ContentEnEQ(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldEQ(FieldContentEn, v))
+}
+
+// ContentEnNEQ applies the NEQ predicate on the "content_en" field.
+func ContentEnNEQ(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldNEQ(FieldContentEn, v))
+}
+
+// ContentEnIn applies the In predicate on the "content_en" field.
+func ContentEnIn(vs ...string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldIn(FieldContentEn, vs...))
+}
+
+// ContentEnNotIn applies the NotIn predicate on the "content_en" field.
+func ContentEnNotIn(vs ...string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldNotIn(FieldContentEn, vs...))
+}
+
+// ContentEnGT applies the GT predicate on the "content_en" field.
+func ContentEnGT(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldGT(FieldContentEn, v))
+}
+
+// ContentEnGTE applies the GTE predicate on the "content_en" field.
+func ContentEnGTE(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldGTE(FieldContentEn, v))
+}
+
+// ContentEnLT applies the LT predicate on the "content_en" field.
+func ContentEnLT(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldLT(FieldContentEn, v))
+}
+
+// ContentEnLTE applies the LTE predicate on the "content_en" field.
+func ContentEnLTE(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldLTE(FieldContentEn, v))
+}
+
+// ContentEnContains applies the Contains predicate on the "content_en" field.
+func ContentEnContains(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldContains(FieldContentEn, v))
+}
+
+// ContentEnHasPrefix applies the HasPrefix predicate on the "content_en" field.
+func ContentEnHasPrefix(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldHasPrefix(FieldContentEn, v))
+}
+
+// ContentEnHasSuffix applies the HasSuffix predicate on the "content_en" field.
+func ContentEnHasSuffix(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldHasSuffix(FieldContentEn, v))
+}
+
+// ContentEnEqualFold applies the EqualFold predicate on the "content_en" field.
+func ContentEnEqualFold(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldEqualFold(FieldContentEn, v))
+}
+
+// ContentEnContainsFold applies the ContainsFold predicate on the "content_en" field.
+func ContentEnContainsFold(v string) predicate.Announcement {
+	return predicate.Announcement(sql.FieldContainsFold(FieldContentEn, v))
 }
 
 // StatusEQ applies the EQ predicate on the "status" field.

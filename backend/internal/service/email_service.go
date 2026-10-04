@@ -109,6 +109,7 @@ type EmailService struct {
 	settingRepo              SettingRepository
 	cache                    EmailCache
 	notificationEmailService *NotificationEmailService
+	cloudflareEmailWebhook   *CloudflareEmailWebhook
 }
 
 // NewEmailService 创建邮件服务实例
@@ -121,6 +122,28 @@ func NewEmailService(settingRepo SettingRepository, cache EmailCache) *EmailServ
 
 func (s *EmailService) SetNotificationEmailService(notificationEmailService *NotificationEmailService) {
 	s.notificationEmailService = notificationEmailService
+}
+
+// SetCloudflareEmailWebhook configures the HTTP transport used for balance-low
+// notifications. Other email events continue to use the configured SMTP server.
+func (s *EmailService) SetCloudflareEmailWebhook(webhook *CloudflareEmailWebhook) {
+	s.cloudflareEmailWebhook = webhook
+}
+
+// SendNotificationEmail sends a rendered notification. Balance alerts can be
+// routed through the Cloudflare Email Worker while preserving template and
+// delivery-key handling in NotificationEmailService.
+func (s *EmailService) SendNotificationEmail(ctx context.Context, event, eventID, to, subject, body string) error {
+	if event == NotificationEmailEventBalanceLow && s.cloudflareEmailWebhook != nil {
+		return s.cloudflareEmailWebhook.Send(ctx, CloudflareEmailRequest{
+			EventID:   eventID,
+			Recipient: to,
+			Subject:   subject,
+			HTML:      body,
+			Text:      subject,
+		})
+	}
+	return s.SendEmail(ctx, to, subject, body)
 }
 
 func firstEmailLocale(locales []string) string {

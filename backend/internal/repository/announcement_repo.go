@@ -26,6 +26,10 @@ func (r *announcementRepository) Create(ctx context.Context, a *service.Announce
 	builder := client.Announcement.Create().
 		SetTitle(a.Title).
 		SetContent(a.Content).
+		SetTitleZh(a.TitleZh).
+		SetTitleEn(a.TitleEn).
+		SetContentZh(a.ContentZh).
+		SetContentEn(a.ContentEn).
 		SetStatus(a.Status).
 		SetNotifyMode(a.NotifyMode).
 		SetTargeting(a.Targeting)
@@ -67,6 +71,10 @@ func (r *announcementRepository) Update(ctx context.Context, a *service.Announce
 	builder := client.Announcement.UpdateOneID(a.ID).
 		SetTitle(a.Title).
 		SetContent(a.Content).
+		SetTitleZh(a.TitleZh).
+		SetTitleEn(a.TitleEn).
+		SetContentZh(a.ContentZh).
+		SetContentEn(a.ContentEn).
 		SetStatus(a.Status).
 		SetNotifyMode(a.NotifyMode).
 		SetTargeting(a.Targeting)
@@ -122,6 +130,10 @@ func (r *announcementRepository) List(
 			announcement.Or(
 				announcement.TitleContainsFold(filters.Search),
 				announcement.ContentContainsFold(filters.Search),
+				announcement.TitleZhContainsFold(filters.Search),
+				announcement.TitleEnContainsFold(filters.Search),
+				announcement.ContentZhContainsFold(filters.Search),
+				announcement.ContentEnContainsFold(filters.Search),
 			),
 		)
 	}
@@ -231,6 +243,10 @@ func announcementEntityToService(m *dbent.Announcement) *service.Announcement {
 		ID:         m.ID,
 		Title:      m.Title,
 		Content:    m.Content,
+		TitleZh:    m.TitleZh,
+		TitleEn:    m.TitleEn,
+		ContentZh:  m.ContentZh,
+		ContentEn:  m.ContentEn,
 		Status:     m.Status,
 		NotifyMode: m.NotifyMode,
 		Targeting:  m.Targeting,

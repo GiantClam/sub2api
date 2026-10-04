@@ -53,6 +53,14 @@ func ProvideEmailQueueService(emailService *EmailService) *EmailQueueService {
 	return NewEmailQueueService(emailService, 3)
 }
 
+// ProvideEmailService configures optional Cloudflare email delivery without
+// changing the constructor used by tests and other internal callers.
+func ProvideEmailService(settingRepo SettingRepository, cache EmailCache) *EmailService {
+	svc := NewEmailService(settingRepo, cache)
+	svc.SetCloudflareEmailWebhook(NewCloudflareEmailWebhookFromEnv())
+	return svc
+}
+
 // ProvideAuthService wires the optional captcha providers into AuthService while
 // keeping NewAuthService's public constructor compatible with existing tests.
 func ProvideAuthService(
@@ -921,7 +929,7 @@ var ProviderSet = wire.NewSet(
 	ProvideOpsAlertEvaluatorService,
 	ProvideOpsCleanupService,
 	ProvideOpsScheduledReportService,
-	NewEmailService,
+	ProvideEmailService,
 	NewNotificationEmailService,
 	ProvideEmailQueueService,
 	NewTurnstileService,

@@ -116,7 +116,7 @@
                   <div class="flex min-w-0 flex-1 items-center justify-between gap-4">
                     <div class="min-w-0 flex-1">
                       <h3 class="truncate text-sm font-medium text-gray-900 dark:text-white">
-                        {{ item.title }}
+                        {{ localizedTitle(item) }}
                       </h3>
                       <div class="mt-1 flex items-center gap-2">
                         <time class="text-xs text-gray-500 dark:text-gray-400">
@@ -225,7 +225,7 @@
 
                   <!-- Title -->
                   <h2 class="mb-3 text-2xl font-bold leading-tight text-gray-900 dark:text-white">
-                    {{ selectedAnnouncement.title }}
+                    {{ localizedTitle(selectedAnnouncement) }}
                   </h2>
 
                   <!-- Meta Info -->
@@ -267,7 +267,7 @@
                 <div class="pl-6">
                   <div
                     class="markdown-body prose prose-sm max-w-none dark:prose-invert"
-                    v-html="renderMarkdown(selectedAnnouncement.content)"
+                    v-html="renderMarkdown(localizedContent(selectedAnnouncement))"
                   ></div>
                 </div>
               </div>
@@ -320,11 +320,12 @@ import DOMPurify from 'dompurify'
 import { useAppStore } from '@/stores/app'
 import { useAnnouncementStore } from '@/stores/announcements'
 import { formatRelativeTime, formatRelativeWithDateTime } from '@/utils/format'
+import { localizedAnnouncementContent, localizedAnnouncementTitle } from '@/utils/announcementLocalization'
 import type { UserAnnouncement } from '@/types'
 import Icon from '@/components/icons/Icon.vue'
 import '@/styles/announcement-markdown.css'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const appStore = useAppStore()
 const announcementStore = useAnnouncementStore()
 
@@ -348,6 +349,14 @@ function renderMarkdown(content: string): string {
   if (!content) return ''
   const html = marked.parse(content) as string
   return DOMPurify.sanitize(html)
+}
+
+function localizedTitle(announcement: UserAnnouncement | null | undefined): string {
+  return localizedAnnouncementTitle(announcement, locale.value)
+}
+
+function localizedContent(announcement: UserAnnouncement | null | undefined): string {
+  return localizedAnnouncementContent(announcement, locale.value)
 }
 
 function openModal() {

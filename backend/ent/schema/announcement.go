@@ -37,6 +37,22 @@ func (Announcement) Fields() []ent.Field {
 			SchemaType(map[string]string{dialect.Postgres: "text"}).
 			NotEmpty().
 			Comment("公告内容（支持 Markdown）"),
+		field.String("title_zh").
+			MaxLen(200).
+			Default("").
+			Comment("公告中文标题（为空时回退到 title）"),
+		field.String("title_en").
+			MaxLen(200).
+			Default("").
+			Comment("公告英文标题（为空时回退到 title）"),
+		field.String("content_zh").
+			SchemaType(map[string]string{dialect.Postgres: "text"}).
+			Default("").
+			Comment("公告中文内容（为空时回退到 content）"),
+		field.String("content_en").
+			SchemaType(map[string]string{dialect.Postgres: "text"}).
+			Default("").
+			Comment("公告英文内容（为空时回退到 content）"),
 		field.String("status").
 			MaxLen(20).
 			Default(domain.AnnouncementStatusDraft).

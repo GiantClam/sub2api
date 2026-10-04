@@ -264,6 +264,10 @@ var (
 		{Name: "id", Type: field.TypeInt64, Increment: true},
 		{Name: "title", Type: field.TypeString, Size: 200},
 		{Name: "content", Type: field.TypeString, SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "title_zh", Type: field.TypeString, Size: 200, Default: ""},
+		{Name: "title_en", Type: field.TypeString, Size: 200, Default: ""},
+		{Name: "content_zh", Type: field.TypeString, Default: "", SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "content_en", Type: field.TypeString, Default: "", SchemaType: map[string]string{"postgres": "text"}},
 		{Name: "status", Type: field.TypeString, Size: 20, Default: "draft"},
 		{Name: "notify_mode", Type: field.TypeString, Size: 20, Default: "silent"},
 		{Name: "targeting", Type: field.TypeJSON, Nullable: true, SchemaType: map[string]string{"postgres": "jsonb"}},
@@ -283,22 +287,22 @@ var (
 			{
 				Name:    "announcement_status",
 				Unique:  false,
-				Columns: []*schema.Column{AnnouncementsColumns[3]},
+				Columns: []*schema.Column{AnnouncementsColumns[7]},
 			},
 			{
 				Name:    "announcement_created_at",
 				Unique:  false,
-				Columns: []*schema.Column{AnnouncementsColumns[10]},
+				Columns: []*schema.Column{AnnouncementsColumns[14]},
 			},
 			{
 				Name:    "announcement_starts_at",
 				Unique:  false,
-				Columns: []*schema.Column{AnnouncementsColumns[6]},
+				Columns: []*schema.Column{AnnouncementsColumns[10]},
 			},
 			{
 				Name:    "announcement_ends_at",
 				Unique:  false,
-				Columns: []*schema.Column{AnnouncementsColumns[7]},
+				Columns: []*schema.Column{AnnouncementsColumns[11]},
 			},
 		},
 	}

@@ -402,6 +402,10 @@ export default {
       form: {
         title: '标题',
         content: '内容（支持 Markdown）',
+        titleZh: '中文标题',
+        titleEn: '英文标题',
+        contentZh: '中文内容（支持 Markdown）',
+        contentEn: '英文内容（支持 Markdown）',
         status: '状态',
         notifyMode: '通知方式',
         notifyModeHint: '弹窗模式会自动弹出通知给用户',

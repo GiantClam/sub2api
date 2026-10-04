@@ -23,6 +23,14 @@ type Announcement struct {
 	Title string `json:"title,omitempty"`
 	// 公告内容（支持 Markdown）
 	Content string `json:"content,omitempty"`
+	// 公告中文标题（为空时回退到 title）
+	TitleZh string `json:"title_zh,omitempty"`
+	// 公告英文标题（为空时回退到 title）
+	TitleEn string `json:"title_en,omitempty"`
+	// 公告中文内容（为空时回退到 content）
+	ContentZh string `json:"content_zh,omitempty"`
+	// 公告英文内容（为空时回退到 content）
+	ContentEn string `json:"content_en,omitempty"`
 	// 状态: draft, active, archived
 	Status string `json:"status,omitempty"`
 	// 通知模式: silent(仅铃铛), popup(弹窗提醒)
@@ -74,7 +82,7 @@ func (*Announcement) scanValues(columns []string) ([]any, error) {
 			values[i] = new([]byte)
 		case announcement.FieldID, announcement.FieldCreatedBy, announcement.FieldUpdatedBy:
 			values[i] = new(sql.NullInt64)
-		case announcement.FieldTitle, announcement.FieldContent, announcement.FieldStatus, announcement.FieldNotifyMode:
+		case announcement.FieldTitle, announcement.FieldContent, announcement.FieldTitleZh, announcement.FieldTitleEn, announcement.FieldContentZh, announcement.FieldContentEn, announcement.FieldStatus, announcement.FieldNotifyMode:
 			values[i] = new(sql.NullString)
 		case announcement.FieldStartsAt, announcement.FieldEndsAt, announcement.FieldCreatedAt, announcement.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -110,6 +118,30 @@ func (_m *Announcement) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field content", values[i])
 			} else if value.Valid {
 				_m.Content = value.String
+			}
+		case announcement.FieldTitleZh:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field title_zh", values[i])
+			} else if value.Valid {
+				_m.TitleZh = value.String
+			}
+		case announcement.FieldTitleEn:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field title_en", values[i])
+			} else if value.Valid {
+				_m.TitleEn = value.String
+			}
+		case announcement.FieldContentZh:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field content_zh", values[i])
+			} else if value.Valid {
+				_m.ContentZh = value.String
+			}
+		case announcement.FieldContentEn:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field content_en", values[i])
+			} else if value.Valid {
+				_m.ContentEn = value.String
 			}
 		case announcement.FieldStatus:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -217,6 +249,18 @@ func (_m *Announcement) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("content=")
 	builder.WriteString(_m.Content)
+	builder.WriteString(", ")
+	builder.WriteString("title_zh=")
+	builder.WriteString(_m.TitleZh)
+	builder.WriteString(", ")
+	builder.WriteString("title_en=")
+	builder.WriteString(_m.TitleEn)
+	builder.WriteString(", ")
+	builder.WriteString("content_zh=")
+	builder.WriteString(_m.ContentZh)
+	builder.WriteString(", ")
+	builder.WriteString("content_en=")
+	builder.WriteString(_m.ContentEn)
 	builder.WriteString(", ")
 	builder.WriteString("status=")
 	builder.WriteString(_m.Status)

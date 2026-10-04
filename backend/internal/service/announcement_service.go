@@ -35,6 +35,10 @@ func NewAnnouncementService(
 type CreateAnnouncementInput struct {
 	Title      string
 	Content    string
+	TitleZh    string
+	TitleEn    string
+	ContentZh  string
+	ContentEn  string
 	Status     string
 	NotifyMode string
 	Targeting  AnnouncementTargeting
@@ -46,6 +50,10 @@ type CreateAnnouncementInput struct {
 type UpdateAnnouncementInput struct {
 	Title      *string
 	Content    *string
+	TitleZh    *string
+	TitleEn    *string
+	ContentZh  *string
+	ContentEn  *string
 	Status     *string
 	NotifyMode *string
 	Targeting  *AnnouncementTargeting
@@ -79,11 +87,18 @@ func (s *AnnouncementService) Create(ctx context.Context, input *CreateAnnouncem
 
 	title := strings.TrimSpace(input.Title)
 	content := strings.TrimSpace(input.Content)
+	titleZh := strings.TrimSpace(input.TitleZh)
+	titleEn := strings.TrimSpace(input.TitleEn)
+	contentZh := strings.TrimSpace(input.ContentZh)
+	contentEn := strings.TrimSpace(input.ContentEn)
 	if title == "" || len(title) > 200 {
 		return nil, ErrAnnouncementInvalidTitle
 	}
 	if content == "" {
 		return nil, ErrAnnouncementContentRequired
+	}
+	if len(titleZh) > 200 || len(titleEn) > 200 {
+		return nil, ErrAnnouncementInvalidTitle
 	}
 
 	status := strings.TrimSpace(input.Status)
@@ -116,6 +131,10 @@ func (s *AnnouncementService) Create(ctx context.Context, input *CreateAnnouncem
 	a := &Announcement{
 		Title:      title,
 		Content:    content,
+		TitleZh:    titleZh,
+		TitleEn:    titleEn,
+		ContentZh:  contentZh,
+		ContentEn:  contentEn,
 		Status:     status,
 		NotifyMode: notifyMode,
 		Targeting:  targeting,
@@ -161,6 +180,26 @@ func (s *AnnouncementService) Update(ctx context.Context, id int64, input *Updat
 			return nil, ErrAnnouncementContentRequired
 		}
 		a.Content = content
+	}
+	if input.TitleZh != nil {
+		titleZh := strings.TrimSpace(*input.TitleZh)
+		if len(titleZh) > 200 {
+			return nil, ErrAnnouncementInvalidTitle
+		}
+		a.TitleZh = titleZh
+	}
+	if input.TitleEn != nil {
+		titleEn := strings.TrimSpace(*input.TitleEn)
+		if len(titleEn) > 200 {
+			return nil, ErrAnnouncementInvalidTitle
+		}
+		a.TitleEn = titleEn
+	}
+	if input.ContentZh != nil {
+		a.ContentZh = strings.TrimSpace(*input.ContentZh)
+	}
+	if input.ContentEn != nil {
+		a.ContentEn = strings.TrimSpace(*input.ContentEn)
 	}
 	if input.Status != nil {
 		status := strings.TrimSpace(*input.Status)

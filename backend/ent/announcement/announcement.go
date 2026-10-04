@@ -18,6 +18,14 @@ const (
 	FieldTitle = "title"
 	// FieldContent holds the string denoting the content field in the database.
 	FieldContent = "content"
+	// FieldTitleZh holds the string denoting the title_zh field in the database.
+	FieldTitleZh = "title_zh"
+	// FieldTitleEn holds the string denoting the title_en field in the database.
+	FieldTitleEn = "title_en"
+	// FieldContentZh holds the string denoting the content_zh field in the database.
+	FieldContentZh = "content_zh"
+	// FieldContentEn holds the string denoting the content_en field in the database.
+	FieldContentEn = "content_en"
 	// FieldStatus holds the string denoting the status field in the database.
 	FieldStatus = "status"
 	// FieldNotifyMode holds the string denoting the notify_mode field in the database.
@@ -54,6 +62,10 @@ var Columns = []string{
 	FieldID,
 	FieldTitle,
 	FieldContent,
+	FieldTitleZh,
+	FieldTitleEn,
+	FieldContentZh,
+	FieldContentEn,
 	FieldStatus,
 	FieldNotifyMode,
 	FieldTargeting,
@@ -80,6 +92,18 @@ var (
 	TitleValidator func(string) error
 	// ContentValidator is a validator for the "content" field. It is called by the builders before save.
 	ContentValidator func(string) error
+	// DefaultTitleZh holds the default value on creation for the "title_zh" field.
+	DefaultTitleZh string
+	// TitleZhValidator is a validator for the "title_zh" field. It is called by the builders before save.
+	TitleZhValidator func(string) error
+	// DefaultTitleEn holds the default value on creation for the "title_en" field.
+	DefaultTitleEn string
+	// TitleEnValidator is a validator for the "title_en" field. It is called by the builders before save.
+	TitleEnValidator func(string) error
+	// DefaultContentZh holds the default value on creation for the "content_zh" field.
+	DefaultContentZh string
+	// DefaultContentEn holds the default value on creation for the "content_en" field.
+	DefaultContentEn string
 	// DefaultStatus holds the default value on creation for the "status" field.
 	DefaultStatus string
 	// StatusValidator is a validator for the "status" field. It is called by the builders before save.
@@ -112,6 +136,26 @@ func ByTitle(opts ...sql.OrderTermOption) OrderOption {
 // ByContent orders the results by the content field.
 func ByContent(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldContent, opts...).ToFunc()
+}
+
+// ByTitleZh orders the results by the title_zh field.
+func ByTitleZh(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTitleZh, opts...).ToFunc()
+}
+
+// ByTitleEn orders the results by the title_en field.
+func ByTitleEn(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTitleEn, opts...).ToFunc()
+}
+
+// ByContentZh orders the results by the content_zh field.
+func ByContentZh(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldContentZh, opts...).ToFunc()
+}
+
+// ByContentEn orders the results by the content_en field.
+func ByContentEn(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldContentEn, opts...).ToFunc()
 }
 
 // ByStatus orders the results by the status field.

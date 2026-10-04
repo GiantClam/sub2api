@@ -360,6 +360,10 @@ export interface Announcement {
   id: number
   title: string
   content: string
+  title_zh?: string
+  title_en?: string
+  content_zh?: string
+  content_en?: string
   status: AnnouncementStatus
   notify_mode: AnnouncementNotifyMode
   targeting: AnnouncementTargeting
@@ -375,6 +379,10 @@ export interface UserAnnouncement {
   id: number
   title: string
   content: string
+  title_zh?: string
+  title_en?: string
+  content_zh?: string
+  content_en?: string
   notify_mode: AnnouncementNotifyMode
   starts_at?: string
   ends_at?: string
@@ -386,6 +394,10 @@ export interface UserAnnouncement {
 export interface CreateAnnouncementRequest {
   title: string
   content: string
+  title_zh?: string
+  title_en?: string
+  content_zh?: string
+  content_en?: string
   status?: AnnouncementStatus
   notify_mode?: AnnouncementNotifyMode
   targeting: AnnouncementTargeting
@@ -396,6 +408,10 @@ export interface CreateAnnouncementRequest {
 export interface UpdateAnnouncementRequest {
   title?: string
   content?: string
+  title_zh?: string
+  title_en?: string
+  content_zh?: string
+  content_en?: string
   status?: AnnouncementStatus
   notify_mode?: AnnouncementNotifyMode
   targeting?: AnnouncementTargeting

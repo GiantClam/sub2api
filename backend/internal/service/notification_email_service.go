@@ -420,7 +420,7 @@ func (s *NotificationEmailService) Send(ctx context.Context, input NotificationE
 	if s.emailService == nil {
 		return notificationEmailConfigErr(errors.New("email service is not configured"))
 	}
-	if err := s.emailService.SendEmail(ctx, recipient, rendered.Subject, rendered.HTML); err != nil {
+	if err := s.emailService.SendNotificationEmail(ctx, normalizedEvent, deliveryKey, recipient, rendered.Subject, rendered.HTML); err != nil {
 		return notificationEmailDeliveryErr(err)
 	}
 	if deliveryKey != "" {

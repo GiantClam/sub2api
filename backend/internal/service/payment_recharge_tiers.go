@@ -165,13 +165,14 @@ func BuildCheckoutRechargeTiers(cfg *PaymentConfig, methods map[string]MethodLim
 			if !ok || validateRechargeTierAmount(amount, code) != nil || !withinRechargeRange(amount, cfg.MinAmount, cfg.MaxAmount) {
 				continue
 			}
-			_, payAmount, err := calculateCreateOrderPayAmountForOrderType(amount, cfg.RechargeFeeRate, code, payment.OrderTypeBalance, cfg.SubscriptionUSDToCNYRate)
+			quote := quoteRechargeBonus(cfg, amount, code)
+			_, payAmount, err := calculateCreateOrderPayAmountForOrderType(quote.PayBase, cfg.RechargeFeeRate, code, payment.OrderTypeBalance, cfg.SubscriptionUSDToCNYRate)
 			if err != nil || validateRechargeTierAmount(payAmount, code) != nil || !withinRechargeRange(payAmount, limits.SingleMin, limits.SingleMax) {
 				continue
 			}
 			options = append(options, RechargePaymentOption{
 				PaymentType: method, Currency: code, Amount: amount, PayAmount: payAmount,
-				CreditedBalance: calculateCreditedBalance(amount, cfg.BalanceRechargeMultiplier),
+				CreditedBalance: quote.Credited,
 			})
 		}
 		if len(options) > 0 {

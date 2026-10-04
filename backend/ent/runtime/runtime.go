@@ -290,24 +290,44 @@ func init() {
 	announcementDescContent := announcementFields[1].Descriptor()
 	// announcement.ContentValidator is a validator for the "content" field. It is called by the builders before save.
 	announcement.ContentValidator = announcementDescContent.Validators[0].(func(string) error)
+	// announcementDescTitleZh is the schema descriptor for title_zh field.
+	announcementDescTitleZh := announcementFields[2].Descriptor()
+	// announcement.DefaultTitleZh holds the default value on creation for the title_zh field.
+	announcement.DefaultTitleZh = announcementDescTitleZh.Default.(string)
+	// announcement.TitleZhValidator is a validator for the "title_zh" field. It is called by the builders before save.
+	announcement.TitleZhValidator = announcementDescTitleZh.Validators[0].(func(string) error)
+	// announcementDescTitleEn is the schema descriptor for title_en field.
+	announcementDescTitleEn := announcementFields[3].Descriptor()
+	// announcement.DefaultTitleEn holds the default value on creation for the title_en field.
+	announcement.DefaultTitleEn = announcementDescTitleEn.Default.(string)
+	// announcement.TitleEnValidator is a validator for the "title_en" field. It is called by the builders before save.
+	announcement.TitleEnValidator = announcementDescTitleEn.Validators[0].(func(string) error)
+	// announcementDescContentZh is the schema descriptor for content_zh field.
+	announcementDescContentZh := announcementFields[4].Descriptor()
+	// announcement.DefaultContentZh holds the default value on creation for the content_zh field.
+	announcement.DefaultContentZh = announcementDescContentZh.Default.(string)
+	// announcementDescContentEn is the schema descriptor for content_en field.
+	announcementDescContentEn := announcementFields[5].Descriptor()
+	// announcement.DefaultContentEn holds the default value on creation for the content_en field.
+	announcement.DefaultContentEn = announcementDescContentEn.Default.(string)
 	// announcementDescStatus is the schema descriptor for status field.
-	announcementDescStatus := announcementFields[2].Descriptor()
+	announcementDescStatus := announcementFields[6].Descriptor()
 	// announcement.DefaultStatus holds the default value on creation for the status field.
 	announcement.DefaultStatus = announcementDescStatus.Default.(string)
 	// announcement.StatusValidator is a validator for the "status" field. It is called by the builders before save.
 	announcement.StatusValidator = announcementDescStatus.Validators[0].(func(string) error)
 	// announcementDescNotifyMode is the schema descriptor for notify_mode field.
-	announcementDescNotifyMode := announcementFields[3].Descriptor()
+	announcementDescNotifyMode := announcementFields[7].Descriptor()
 	// announcement.DefaultNotifyMode holds the default value on creation for the notify_mode field.
 	announcement.DefaultNotifyMode = announcementDescNotifyMode.Default.(string)
 	// announcement.NotifyModeValidator is a validator for the "notify_mode" field. It is called by the builders before save.
 	announcement.NotifyModeValidator = announcementDescNotifyMode.Validators[0].(func(string) error)
 	// announcementDescCreatedAt is the schema descriptor for created_at field.
-	announcementDescCreatedAt := announcementFields[9].Descriptor()
+	announcementDescCreatedAt := announcementFields[13].Descriptor()
 	// announcement.DefaultCreatedAt holds the default value on creation for the created_at field.
 	announcement.DefaultCreatedAt = announcementDescCreatedAt.Default.(func() time.Time)
 	// announcementDescUpdatedAt is the schema descriptor for updated_at field.
-	announcementDescUpdatedAt := announcementFields[10].Descriptor()
+	announcementDescUpdatedAt := announcementFields[14].Descriptor()
 	// announcement.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	announcement.DefaultUpdatedAt = announcementDescUpdatedAt.Default.(func() time.Time)
 	// announcement.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.

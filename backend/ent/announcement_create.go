@@ -36,6 +36,62 @@ func (_c *AnnouncementCreate) SetContent(v string) *AnnouncementCreate {
 	return _c
 }
 
+// SetTitleZh sets the "title_zh" field.
+func (_c *AnnouncementCreate) SetTitleZh(v string) *AnnouncementCreate {
+	_c.mutation.SetTitleZh(v)
+	return _c
+}
+
+// SetNillableTitleZh sets the "title_zh" field if the given value is not nil.
+func (_c *AnnouncementCreate) SetNillableTitleZh(v *string) *AnnouncementCreate {
+	if v != nil {
+		_c.SetTitleZh(*v)
+	}
+	return _c
+}
+
+// SetTitleEn sets the "title_en" field.
+func (_c *AnnouncementCreate) SetTitleEn(v string) *AnnouncementCreate {
+	_c.mutation.SetTitleEn(v)
+	return _c
+}
+
+// SetNillableTitleEn sets the "title_en" field if the given value is not nil.
+func (_c *AnnouncementCreate) SetNillableTitleEn(v *string) *AnnouncementCreate {
+	if v != nil {
+		_c.SetTitleEn(*v)
+	}
+	return _c
+}
+
+// SetContentZh sets the "content_zh" field.
+func (_c *AnnouncementCreate) SetContentZh(v string) *AnnouncementCreate {
+	_c.mutation.SetContentZh(v)
+	return _c
+}
+
+// SetNillableContentZh sets the "content_zh" field if the given value is not nil.
+func (_c *AnnouncementCreate) SetNillableContentZh(v *string) *AnnouncementCreate {
+	if v != nil {
+		_c.SetContentZh(*v)
+	}
+	return _c
+}
+
+// SetContentEn sets the "content_en" field.
+func (_c *AnnouncementCreate) SetContentEn(v string) *AnnouncementCreate {
+	_c.mutation.SetContentEn(v)
+	return _c
+}
+
+// SetNillableContentEn sets the "content_en" field if the given value is not nil.
+func (_c *AnnouncementCreate) SetNillableContentEn(v *string) *AnnouncementCreate {
+	if v != nil {
+		_c.SetContentEn(*v)
+	}
+	return _c
+}
+
 // SetStatus sets the "status" field.
 func (_c *AnnouncementCreate) SetStatus(v string) *AnnouncementCreate {
 	_c.mutation.SetStatus(v)
@@ -212,6 +268,22 @@ func (_c *AnnouncementCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *AnnouncementCreate) defaults() {
+	if _, ok := _c.mutation.TitleZh(); !ok {
+		v := announcement.DefaultTitleZh
+		_c.mutation.SetTitleZh(v)
+	}
+	if _, ok := _c.mutation.TitleEn(); !ok {
+		v := announcement.DefaultTitleEn
+		_c.mutation.SetTitleEn(v)
+	}
+	if _, ok := _c.mutation.ContentZh(); !ok {
+		v := announcement.DefaultContentZh
+		_c.mutation.SetContentZh(v)
+	}
+	if _, ok := _c.mutation.ContentEn(); !ok {
+		v := announcement.DefaultContentEn
+		_c.mutation.SetContentEn(v)
+	}
 	if _, ok := _c.mutation.Status(); !ok {
 		v := announcement.DefaultStatus
 		_c.mutation.SetStatus(v)
@@ -247,6 +319,28 @@ func (_c *AnnouncementCreate) check() error {
 		if err := announcement.ContentValidator(v); err != nil {
 			return &ValidationError{Name: "content", err: fmt.Errorf(`ent: validator failed for field "Announcement.content": %w`, err)}
 		}
+	}
+	if _, ok := _c.mutation.TitleZh(); !ok {
+		return &ValidationError{Name: "title_zh", err: errors.New(`ent: missing required field "Announcement.title_zh"`)}
+	}
+	if v, ok := _c.mutation.TitleZh(); ok {
+		if err := announcement.TitleZhValidator(v); err != nil {
+			return &ValidationError{Name: "title_zh", err: fmt.Errorf(`ent: validator failed for field "Announcement.title_zh": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.TitleEn(); !ok {
+		return &ValidationError{Name: "title_en", err: errors.New(`ent: missing required field "Announcement.title_en"`)}
+	}
+	if v, ok := _c.mutation.TitleEn(); ok {
+		if err := announcement.TitleEnValidator(v); err != nil {
+			return &ValidationError{Name: "title_en", err: fmt.Errorf(`ent: validator failed for field "Announcement.title_en": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.ContentZh(); !ok {
+		return &ValidationError{Name: "content_zh", err: errors.New(`ent: missing required field "Announcement.content_zh"`)}
+	}
+	if _, ok := _c.mutation.ContentEn(); !ok {
+		return &ValidationError{Name: "content_en", err: errors.New(`ent: missing required field "Announcement.content_en"`)}
 	}
 	if _, ok := _c.mutation.Status(); !ok {
 		return &ValidationError{Name: "status", err: errors.New(`ent: missing required field "Announcement.status"`)}
@@ -304,6 +398,22 @@ func (_c *AnnouncementCreate) createSpec() (*Announcement, *sqlgraph.CreateSpec)
 	if value, ok := _c.mutation.Content(); ok {
 		_spec.SetField(announcement.FieldContent, field.TypeString, value)
 		_node.Content = value
+	}
+	if value, ok := _c.mutation.TitleZh(); ok {
+		_spec.SetField(announcement.FieldTitleZh, field.TypeString, value)
+		_node.TitleZh = value
+	}
+	if value, ok := _c.mutation.TitleEn(); ok {
+		_spec.SetField(announcement.FieldTitleEn, field.TypeString, value)
+		_node.TitleEn = value
+	}
+	if value, ok := _c.mutation.ContentZh(); ok {
+		_spec.SetField(announcement.FieldContentZh, field.TypeString, value)
+		_node.ContentZh = value
+	}
+	if value, ok := _c.mutation.ContentEn(); ok {
+		_spec.SetField(announcement.FieldContentEn, field.TypeString, value)
+		_node.ContentEn = value
 	}
 	if value, ok := _c.mutation.Status(); ok {
 		_spec.SetField(announcement.FieldStatus, field.TypeString, value)
@@ -430,6 +540,54 @@ func (u *AnnouncementUpsert) SetContent(v string) *AnnouncementUpsert {
 // UpdateContent sets the "content" field to the value that was provided on create.
 func (u *AnnouncementUpsert) UpdateContent() *AnnouncementUpsert {
 	u.SetExcluded(announcement.FieldContent)
+	return u
+}
+
+// SetTitleZh sets the "title_zh" field.
+func (u *AnnouncementUpsert) SetTitleZh(v string) *AnnouncementUpsert {
+	u.Set(announcement.FieldTitleZh, v)
+	return u
+}
+
+// UpdateTitleZh sets the "title_zh" field to the value that was provided on create.
+func (u *AnnouncementUpsert) UpdateTitleZh() *AnnouncementUpsert {
+	u.SetExcluded(announcement.FieldTitleZh)
+	return u
+}
+
+// SetTitleEn sets the "title_en" field.
+func (u *AnnouncementUpsert) SetTitleEn(v string) *AnnouncementUpsert {
+	u.Set(announcement.FieldTitleEn, v)
+	return u
+}
+
+// UpdateTitleEn sets the "title_en" field to the value that was provided on create.
+func (u *AnnouncementUpsert) UpdateTitleEn() *AnnouncementUpsert {
+	u.SetExcluded(announcement.FieldTitleEn)
+	return u
+}
+
+// SetContentZh sets the "content_zh" field.
+func (u *AnnouncementUpsert) SetContentZh(v string) *AnnouncementUpsert {
+	u.Set(announcement.FieldContentZh, v)
+	return u
+}
+
+// UpdateContentZh sets the "content_zh" field to the value that was provided on create.
+func (u *AnnouncementUpsert) UpdateContentZh() *AnnouncementUpsert {
+	u.SetExcluded(announcement.FieldContentZh)
+	return u
+}
+
+// SetContentEn sets the "content_en" field.
+func (u *AnnouncementUpsert) SetContentEn(v string) *AnnouncementUpsert {
+	u.Set(announcement.FieldContentEn, v)
+	return u
+}
+
+// UpdateContentEn sets the "content_en" field to the value that was provided on create.
+func (u *AnnouncementUpsert) UpdateContentEn() *AnnouncementUpsert {
+	u.SetExcluded(announcement.FieldContentEn)
 	return u
 }
 
@@ -641,6 +799,62 @@ func (u *AnnouncementUpsertOne) SetContent(v string) *AnnouncementUpsertOne {
 func (u *AnnouncementUpsertOne) UpdateContent() *AnnouncementUpsertOne {
 	return u.Update(func(s *AnnouncementUpsert) {
 		s.UpdateContent()
+	})
+}
+
+// SetTitleZh sets the "title_zh" field.
+func (u *AnnouncementUpsertOne) SetTitleZh(v string) *AnnouncementUpsertOne {
+	return u.Update(func(s *AnnouncementUpsert) {
+		s.SetTitleZh(v)
+	})
+}
+
+// UpdateTitleZh sets the "title_zh" field to the value that was provided on create.
+func (u *AnnouncementUpsertOne) UpdateTitleZh() *AnnouncementUpsertOne {
+	return u.Update(func(s *AnnouncementUpsert) {
+		s.UpdateTitleZh()
+	})
+}
+
+// SetTitleEn sets the "title_en" field.
+func (u *AnnouncementUpsertOne) SetTitleEn(v string) *AnnouncementUpsertOne {
+	return u.Update(func(s *AnnouncementUpsert) {
+		s.SetTitleEn(v)
+	})
+}
+
+// UpdateTitleEn sets the "title_en" field to the value that was provided on create.
+func (u *AnnouncementUpsertOne) UpdateTitleEn() *AnnouncementUpsertOne {
+	return u.Update(func(s *AnnouncementUpsert) {
+		s.UpdateTitleEn()
+	})
+}
+
+// SetContentZh sets the "content_zh" field.
+func (u *AnnouncementUpsertOne) SetContentZh(v string) *AnnouncementUpsertOne {
+	return u.Update(func(s *AnnouncementUpsert) {
+		s.SetContentZh(v)
+	})
+}
+
+// UpdateContentZh sets the "content_zh" field to the value that was provided on create.
+func (u *AnnouncementUpsertOne) UpdateContentZh() *AnnouncementUpsertOne {
+	return u.Update(func(s *AnnouncementUpsert) {
+		s.UpdateContentZh()
+	})
+}
+
+// SetContentEn sets the "content_en" field.
+func (u *AnnouncementUpsertOne) SetContentEn(v string) *AnnouncementUpsertOne {
+	return u.Update(func(s *AnnouncementUpsert) {
+		s.SetContentEn(v)
+	})
+}
+
+// UpdateContentEn sets the "content_en" field to the value that was provided on create.
+func (u *AnnouncementUpsertOne) UpdateContentEn() *AnnouncementUpsertOne {
+	return u.Update(func(s *AnnouncementUpsert) {
+		s.UpdateContentEn()
 	})
 }
 
@@ -1041,6 +1255,62 @@ func (u *AnnouncementUpsertBulk) SetContent(v string) *AnnouncementUpsertBulk {
 func (u *AnnouncementUpsertBulk) UpdateContent() *AnnouncementUpsertBulk {
 	return u.Update(func(s *AnnouncementUpsert) {
 		s.UpdateContent()
+	})
+}
+
+// SetTitleZh sets the "title_zh" field.
+func (u *AnnouncementUpsertBulk) SetTitleZh(v string) *AnnouncementUpsertBulk {
+	return u.Update(func(s *AnnouncementUpsert) {
+		s.SetTitleZh(v)
+	})
+}
+
+// UpdateTitleZh sets the "title_zh" field to the value that was provided on create.
+func (u *AnnouncementUpsertBulk) UpdateTitleZh() *AnnouncementUpsertBulk {
+	return u.Update(func(s *AnnouncementUpsert) {
+		s.UpdateTitleZh()
+	})
+}
+
+// SetTitleEn sets the "title_en" field.
+func (u *AnnouncementUpsertBulk) SetTitleEn(v string) *AnnouncementUpsertBulk {
+	return u.Update(func(s *AnnouncementUpsert) {
+		s.SetTitleEn(v)
+	})
+}
+
+// UpdateTitleEn sets the "title_en" field to the value that was provided on create.
+func (u *AnnouncementUpsertBulk) UpdateTitleEn() *AnnouncementUpsertBulk {
+	return u.Update(func(s *AnnouncementUpsert) {
+		s.UpdateTitleEn()
+	})
+}
+
+// SetContentZh sets the "content_zh" field.
+func (u *AnnouncementUpsertBulk) SetContentZh(v string) *AnnouncementUpsertBulk {
+	return u.Update(func(s *AnnouncementUpsert) {
+		s.SetContentZh(v)
+	})
+}
+
+// UpdateContentZh sets the "content_zh" field to the value that was provided on create.
+func (u *AnnouncementUpsertBulk) UpdateContentZh() *AnnouncementUpsertBulk {
+	return u.Update(func(s *AnnouncementUpsert) {
+		s.UpdateContentZh()
+	})
+}
+
+// SetContentEn sets the "content_en" field.
+func (u *AnnouncementUpsertBulk) SetContentEn(v string) *AnnouncementUpsertBulk {
+	return u.Update(func(s *AnnouncementUpsert) {
+		s.SetContentEn(v)
+	})
+}
+
+// UpdateContentEn sets the "content_en" field to the value that was provided on create.
+func (u *AnnouncementUpsertBulk) UpdateContentEn() *AnnouncementUpsertBulk {
+	return u.Update(func(s *AnnouncementUpsert) {
+		s.UpdateContentEn()
 	})
 }
 

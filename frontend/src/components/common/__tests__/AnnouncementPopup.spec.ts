@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
+import { ref } from 'vue'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
@@ -18,9 +19,12 @@ vi.mock('vue-i18n', async () => {
     ...actual,
     useI18n: () => ({
       t: (key: string) => key,
+      locale,
     }),
   }
 })
+
+const locale = ref('en')
 
 const announcement = {
   id: 1,
@@ -35,6 +39,7 @@ const announcement = {
 
 describe('AnnouncementPopup', () => {
   beforeEach(() => {
+    locale.value = 'en'
     setActivePinia(createPinia())
   })
 
@@ -107,6 +112,31 @@ describe('AnnouncementPopup', () => {
 
     await wrapper.setProps({ announcement: null })
     expect(document.body.style.overflow).toBe('')
+    wrapper.unmount()
+  })
+
+  it('reacts to the UI language and sanitizes the selected translation', async () => {
+    const wrapper = mount(AnnouncementPopup, {
+      props: {
+        announcement: {
+          ...announcement,
+          title_zh: '中文公告',
+          title_en: 'English announcement',
+          content_zh: '## 中文正文',
+          content_en: '## English body\n<script>window.__localizedXss = true</script>',
+        },
+        preview: true,
+      },
+    })
+
+    expect(document.body.textContent).toContain('English announcement')
+    expect(document.body.querySelector('.markdown-body h2')?.textContent).toBe('English body')
+    expect(document.body.querySelector('.markdown-body script')).toBeNull()
+
+    locale.value = 'zh-CN'
+    await wrapper.vm.$nextTick()
+    expect(document.body.textContent).toContain('中文公告')
+    expect(document.body.querySelector('.markdown-body h2')?.textContent).toBe('中文正文')
     wrapper.unmount()
   })
 

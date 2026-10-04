@@ -29,6 +29,10 @@ func NewAnnouncementHandler(announcementService *service.AnnouncementService) *A
 type CreateAnnouncementRequest struct {
 	Title      string                        `json:"title" binding:"required"`
 	Content    string                        `json:"content" binding:"required"`
+	TitleZh    string                        `json:"title_zh"`
+	TitleEn    string                        `json:"title_en"`
+	ContentZh  string                        `json:"content_zh"`
+	ContentEn  string                        `json:"content_en"`
 	Status     string                        `json:"status" binding:"omitempty,oneof=draft active archived"`
 	NotifyMode string                        `json:"notify_mode" binding:"omitempty,oneof=silent popup"`
 	Targeting  service.AnnouncementTargeting `json:"targeting"`
@@ -39,6 +43,10 @@ type CreateAnnouncementRequest struct {
 type UpdateAnnouncementRequest struct {
 	Title      *string                        `json:"title"`
 	Content    *string                        `json:"content"`
+	TitleZh    *string                        `json:"title_zh"`
+	TitleEn    *string                        `json:"title_en"`
+	ContentZh  *string                        `json:"content_zh"`
+	ContentEn  *string                        `json:"content_en"`
 	Status     *string                        `json:"status" binding:"omitempty,oneof=draft active archived"`
 	NotifyMode *string                        `json:"notify_mode" binding:"omitempty,oneof=silent popup"`
 	Targeting  *service.AnnouncementTargeting `json:"targeting"`
@@ -118,6 +126,10 @@ func (h *AnnouncementHandler) Create(c *gin.Context) {
 	input := &service.CreateAnnouncementInput{
 		Title:      req.Title,
 		Content:    req.Content,
+		TitleZh:    req.TitleZh,
+		TitleEn:    req.TitleEn,
+		ContentZh:  req.ContentZh,
+		ContentEn:  req.ContentEn,
 		Status:     req.Status,
 		NotifyMode: req.NotifyMode,
 		Targeting:  req.Targeting,
@@ -166,6 +178,10 @@ func (h *AnnouncementHandler) Update(c *gin.Context) {
 	input := &service.UpdateAnnouncementInput{
 		Title:      req.Title,
 		Content:    req.Content,
+		TitleZh:    req.TitleZh,
+		TitleEn:    req.TitleEn,
+		ContentZh:  req.ContentZh,
+		ContentEn:  req.ContentEn,
 		Status:     req.Status,
 		NotifyMode: req.NotifyMode,
 		Targeting:  req.Targeting,

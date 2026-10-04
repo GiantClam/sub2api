@@ -30,6 +30,7 @@ func SetupRouter(
 	auditLog middleware2.AuditLogMiddleware,
 	stepUpAuth middleware2.StepUpAuthMiddleware,
 	apiKeyService *service.APIKeyService,
+	usageBillingRepository service.UsageBillingRepository,
 	subscriptionService *service.SubscriptionService,
 	opsService *service.OpsService,
 	settingService *service.SettingService,
@@ -90,7 +91,7 @@ func SetupRouter(
 	}
 
 	// 注册路由
-	registerRoutes(r, handlers, jwtAuth, optionalJWTAuth, adminAuth, apiKeyAuth, auditLog, stepUpAuth, apiKeyService, subscriptionService, opsService, settingService, compositeResolver, cfg, redisClient)
+	registerRoutes(r, handlers, jwtAuth, optionalJWTAuth, adminAuth, apiKeyAuth, auditLog, stepUpAuth, apiKeyService, usageBillingRepository, subscriptionService, opsService, settingService, compositeResolver, cfg, redisClient)
 
 	return r
 }
@@ -106,6 +107,7 @@ func registerRoutes(
 	auditLog middleware2.AuditLogMiddleware,
 	stepUpAuth middleware2.StepUpAuthMiddleware,
 	apiKeyService *service.APIKeyService,
+	usageBillingRepository service.UsageBillingRepository,
 	subscriptionService *service.SubscriptionService,
 	opsService *service.OpsService,
 	settingService *service.SettingService,
@@ -115,6 +117,10 @@ func registerRoutes(
 ) {
 	// 通用路由（健康检查、状态等）
 	routes.RegisterCommonRoutes(r)
+	// CheapBuddy Relay is the only caller of this narrow, private bridge.  It
+	// deliberately lives outside the public /api/v1 surface and is disabled
+	// unless the service token is configured.
+	routes.RegisterCheapBuddyInternalRoutes(r, apiKeyService, usageBillingRepository)
 
 	// API v1
 	v1 := r.Group("/api/v1")

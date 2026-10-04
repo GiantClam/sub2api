@@ -67,13 +67,14 @@ type PaymentConfig struct {
 	// RechargeBonusMode 阶梯模式：bonus（赠金）/ discount（折扣），已归一化。
 	RechargeBonusMode string `json:"recharge_bonus_mode"`
 	// RechargeBonusNotice 充值页展示的 Markdown 活动文案；空表示不展示。
-	RechargeBonusNotice  string `json:"recharge_bonus_notice"`
-	LoadBalanceStrategy  string `json:"load_balance_strategy"`
-	ProductNamePrefix    string `json:"product_name_prefix"`
-	ProductNameSuffix    string `json:"product_name_suffix"`
-	HelpImageURL         string `json:"help_image_url"`
-	HelpText             string `json:"help_text"`
-	StripePublishableKey string `json:"stripe_publishable_key,omitempty"`
+	RechargeBonusNotice  string         `json:"recharge_bonus_notice"`
+	LoadBalanceStrategy  string         `json:"load_balance_strategy"`
+	ProductNamePrefix    string         `json:"product_name_prefix"`
+	ProductNameSuffix    string         `json:"product_name_suffix"`
+	HelpImageURL         string         `json:"help_image_url"`
+	HelpText             string         `json:"help_text"`
+	StripePublishableKey string         `json:"stripe_publishable_key,omitempty"`
+	RechargeTiers        []RechargeTier `json:"recharge_tiers"`
 
 	// Cancel rate limit settings
 	CancelRateLimitEnabled bool   `json:"cancel_rate_limit_enabled"`
@@ -110,6 +111,7 @@ type UpdatePaymentConfigRequest struct {
 	ProductNameSuffix   *string              `json:"product_name_suffix"`
 	HelpImageURL        *string              `json:"help_image_url"`
 	HelpText            *string              `json:"help_text"`
+	RechargeTiers       *[]RechargeTier      `json:"recharge_tiers"`
 
 	// Cancel rate limit settings
 	CancelRateLimitEnabled *bool   `json:"cancel_rate_limit_enabled"`
@@ -233,6 +235,7 @@ func (s *PaymentConfigService) GetPaymentConfig(ctx context.Context) (*PaymentCo
 		SettingRechargeBonusTiers, SettingRechargeBonusMode, SettingRechargeBonusNotice,
 		SettingProductNamePrefix, SettingProductNameSuffix,
 		SettingHelpImageURL, SettingHelpText,
+		SettingPaymentRechargeTiers,
 		SettingCancelRateLimitOn, SettingCancelRateLimitMax,
 		SettingCancelWindowSize, SettingCancelWindowUnit, SettingCancelWindowMode,
 		SettingAlipayForceQRCode, SettingAlipayMobilePrecreateDeepLink,
@@ -244,6 +247,10 @@ func (s *PaymentConfigService) GetPaymentConfig(ctx context.Context) (*PaymentCo
 		return nil, fmt.Errorf("get payment config settings: %w", err)
 	}
 	cfg := s.parsePaymentConfig(vals)
+	cfg.RechargeTiers, err = parseRechargeTiers(vals[SettingPaymentRechargeTiers])
+	if err != nil {
+		return nil, err
+	}
 	// Load Stripe publishable key from the first enabled Stripe provider instance
 	cfg.StripePublishableKey = s.getStripePublishableKey(ctx)
 	return cfg, nil
@@ -367,6 +374,13 @@ func (s *PaymentConfigService) UpdatePaymentConfig(ctx context.Context, req Upda
 		}
 	}
 	m := make(map[string]string)
+	if req.RechargeTiers != nil {
+		raw, err := marshalRechargeTiers(*req.RechargeTiers)
+		if err != nil {
+			return err
+		}
+		m[SettingPaymentRechargeTiers] = raw
+	}
 	if req.Enabled != nil {
 		m[SettingPaymentEnabled] = formatBoolOrEmpty(req.Enabled)
 	}

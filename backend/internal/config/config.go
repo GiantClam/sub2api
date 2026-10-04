@@ -85,6 +85,7 @@ type Config struct {
 	GitHubOAuth             EmailOAuthProviderConfig      `mapstructure:"github_oauth"`
 	GoogleOAuth             EmailOAuthProviderConfig      `mapstructure:"google_oauth"`
 	Default                 DefaultConfig                 `mapstructure:"default"`
+	Coworkany               CoworkanyConfig               `mapstructure:"coworkany"`
 	RateLimit               RateLimitConfig               `mapstructure:"rate_limit"`
 	Pricing                 PricingConfig                 `mapstructure:"pricing"`
 	Gateway                 GatewayConfig                 `mapstructure:"gateway"`
@@ -1694,6 +1695,11 @@ type TurnstileConfig struct {
 	Required bool `mapstructure:"required"`
 }
 
+// CoworkanyConfig scopes automatic group binding to desktop-managed API keys.
+type CoworkanyConfig struct {
+	DefaultGroupID int64 `mapstructure:"default_group_id"`
+}
+
 type DefaultConfig struct {
 	AdminEmail      string  `mapstructure:"admin_email"`
 	AdminPassword   string  `mapstructure:"admin_password"`
@@ -2333,6 +2339,7 @@ func setDefaults() {
 	viper.SetDefault("default.user_balance", 0)
 	viper.SetDefault("default.api_key_prefix", "sk-")
 	viper.SetDefault("default.rate_multiplier", 1.0)
+	viper.SetDefault("coworkany.default_group_id", int64(0))
 
 	// RateLimit
 	viper.SetDefault("rate_limit.overload_cooldown_minutes", 10)
@@ -2703,6 +2710,9 @@ func setEnvReachableDefaults() {
 }
 
 func (c *Config) Validate() error {
+	if c.Coworkany.DefaultGroupID < 0 {
+		return fmt.Errorf("coworkany.default_group_id must be non-negative")
+	}
 	forwardedClientIPHeaders, err := NormalizeForwardedClientIPHeaders(c.Security.ForwardedClientIPHeaders)
 	if err != nil {
 		return fmt.Errorf("security.forwarded_client_ip_headers: %w", err)

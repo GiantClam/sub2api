@@ -40,9 +40,11 @@ var (
 	ErrAPIKeyQuotaExhausted = infraerrors.TooManyRequests("API_KEY_QUOTA_EXHAUSTED", "api key 额度已用完")
 
 	// Rate limit errors
-	ErrAPIKeyRateLimit5hExceeded = infraerrors.TooManyRequests("API_KEY_RATE_5H_EXCEEDED", "api key 5小时限额已用完")
-	ErrAPIKeyRateLimit1dExceeded = infraerrors.TooManyRequests("API_KEY_RATE_1D_EXCEEDED", "api key 日限额已用完")
-	ErrAPIKeyRateLimit7dExceeded = infraerrors.TooManyRequests("API_KEY_RATE_7D_EXCEEDED", "api key 7天限额已用完")
+	ErrAPIKeyRateLimit5hExceeded          = infraerrors.TooManyRequests("API_KEY_RATE_5H_EXCEEDED", "api key 5小时限额已用完")
+	ErrAPIKeyRateLimit1dExceeded          = infraerrors.TooManyRequests("API_KEY_RATE_1D_EXCEEDED", "api key 日限额已用完")
+	ErrAPIKeyRateLimit7dExceeded          = infraerrors.TooManyRequests("API_KEY_RATE_7D_EXCEEDED", "api key 7天限额已用完")
+	ErrCoworkanyDefaultGroupNotConfigured = infraerrors.ServiceUnavailable("DEFAULT_GROUP_NOT_CONFIGURED", "Coworkany default group is not configured")
+	ErrCoworkanyDefaultGroupUnavailable   = infraerrors.ServiceUnavailable("DEFAULT_GROUP_UNAVAILABLE", "Coworkany default group is unavailable")
 )
 
 const (
@@ -514,10 +516,27 @@ func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIK
 	}
 
 	// 验证分组权限（如果指定了分组）
+	// Only desktop-managed keys opt into the explicitly configured default.
+	// req is a value copy; the caller's omitted group remains untouched.
+	useCoworkanyDefault := req.GroupID == nil && strings.HasPrefix(req.Name, "Coworkany/")
+	if useCoworkanyDefault {
+		if s.cfg == nil || s.cfg.Coworkany.DefaultGroupID <= 0 {
+			return nil, ErrCoworkanyDefaultGroupNotConfigured
+		}
+		groupID := s.cfg.Coworkany.DefaultGroupID
+		req.GroupID = &groupID
+	}
+
 	if req.GroupID != nil {
 		group, err := s.groupRepo.GetByID(ctx, *req.GroupID)
 		if err != nil {
+			if useCoworkanyDefault {
+				return nil, ErrCoworkanyDefaultGroupUnavailable.WithCause(err)
+			}
 			return nil, fmt.Errorf("get group: %w", err)
+		}
+		if useCoworkanyDefault && (group == nil || !group.IsActive()) {
+			return nil, ErrCoworkanyDefaultGroupUnavailable
 		}
 
 		// 检查用户是否可以绑定该分组

@@ -62,6 +62,11 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 		}
 	}
 	orderAmount := req.Amount
+	if req.OrderType == payment.OrderTypeBalance {
+		if err := validateBalanceLedgerCurrency(cfg, methodCurrency); err != nil {
+			return nil, err
+		}
+	}
 	limitAmount := req.Amount
 	bonusAmount := 0.0
 	if plan != nil {
@@ -90,6 +95,9 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 		selectedCurrency = paymentProviderConfigCurrency(sel.ProviderKey, sel.Config)
 	}
 	if selectedCurrency != methodCurrency {
+		if req.OrderType == payment.OrderTypeBalance && balanceLedgerEnabled(cfg) {
+			return nil, infraerrors.BadRequest("PAYMENT_CURRENCY_CHANGED", "selected provider currency differs from the quoted payment currency")
+		}
 		payAmountStr, payAmount, err = calculateCreateOrderPayAmountForOrderType(limitAmount, feeRate, selectedCurrency, req.OrderType, cfg.SubscriptionUSDToCNYRate)
 		if err != nil {
 			return nil, err
@@ -163,7 +171,11 @@ func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderReq
 	if err := s.checkPendingLimit(ctx, tx, req.UserID, cfg.MaxPendingOrders); err != nil {
 		return nil, err
 	}
-	if err := s.checkDailyLimit(ctx, tx, req.UserID, limitAmount, cfg.DailyLimit); err != nil {
+	dailyAmount := limitAmount
+	if req.OrderType == payment.OrderTypeBalance && balanceLedgerEnabled(cfg) {
+		dailyAmount = balanceLedgerPaymentAmount(cfg, limitAmount, paymentProviderSelectionCurrency(sel)).InexactFloat64()
+	}
+	if err := s.checkDailyLimitWithLedger(ctx, tx, req.UserID, dailyAmount, cfg.DailyLimit, cfg); err != nil {
 		return nil, err
 	}
 	tm := cfg.OrderTimeoutMin
@@ -176,6 +188,7 @@ func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderReq
 		return nil, err
 	}
 	providerSnapshot := buildPaymentOrderProviderSnapshot(sel, req)
+	providerSnapshot = addPaymentLedgerSnapshot(providerSnapshot, cfg, req.OrderType, paymentProviderSelectionCurrency(sel), req.Amount, limitAmount, orderAmount, bonusAmount)
 	selectedInstanceID := ""
 	selectedProviderKey := ""
 	if sel != nil {
@@ -329,6 +342,10 @@ func paymentOrderSnapshotWxpayAppID(sel *payment.InstanceSelection, req CreateOr
 }
 
 func (s *PaymentService) checkDailyLimit(ctx context.Context, tx *dbent.Tx, userID int64, amount, limit float64) error {
+	return s.checkDailyLimitWithLedger(ctx, tx, userID, amount, limit, nil)
+}
+
+func (s *PaymentService) checkDailyLimitWithLedger(ctx context.Context, tx *dbent.Tx, userID int64, amount, limit float64, cfg *PaymentConfig) error {
 	if limit <= 0 {
 		return nil
 	}
@@ -339,6 +356,10 @@ func (s *PaymentService) checkDailyLimit(ctx context.Context, tx *dbent.Tx, user
 	}
 	var used float64
 	for _, o := range orders {
+		if balanceLedgerEnabled(cfg) {
+			used += paymentOrderDailyLimitAmountUSD(o, cfg.BalanceUSDToCNYRate)
+			continue
+		}
 		if o.OrderType == payment.OrderTypeBalance {
 			used += o.PayAmount
 			continue
@@ -738,27 +759,28 @@ func classifyCreatePaymentError(req CreateOrderRequest, providerKey string, err 
 
 func buildCreateOrderResponse(order *dbent.PaymentOrder, req CreateOrderRequest, payAmount float64, sel *payment.InstanceSelection, pr *payment.CreatePaymentResponse, resultType payment.CreatePaymentResultType) *CreateOrderResponse {
 	return &CreateOrderResponse{
-		OrderID:      order.ID,
-		Amount:       order.Amount,
-		PayAmount:    payAmount,
-		FeeRate:      order.FeeRate,
-		BonusAmount:  order.BonusAmount,
-		Status:       OrderStatusPending,
-		ResultType:   resultType,
-		PaymentType:  req.PaymentType,
-		OutTradeNo:   order.OutTradeNo,
-		PayURL:       pr.PayURL,
-		QRCode:       pr.QRCode,
-		ClientSecret: pr.ClientSecret,
-		IntentID:     pr.IntentID,
-		Currency:     pr.Currency,
-		CountryCode:  pr.CountryCode,
-		PaymentEnv:   pr.PaymentEnv,
-		OAuth:        pr.OAuth,
-		JSAPI:        pr.JSAPI,
-		JSAPIPayload: pr.JSAPI,
-		ExpiresAt:    order.ExpiresAt,
-		PaymentMode:  sel.PaymentMode,
+		LedgerCurrency: PaymentOrderLedgerCurrency(order),
+		OrderID:        order.ID,
+		Amount:         order.Amount,
+		PayAmount:      payAmount,
+		FeeRate:        order.FeeRate,
+		BonusAmount:    order.BonusAmount,
+		Status:         OrderStatusPending,
+		ResultType:     resultType,
+		PaymentType:    req.PaymentType,
+		OutTradeNo:     order.OutTradeNo,
+		PayURL:         pr.PayURL,
+		QRCode:         pr.QRCode,
+		ClientSecret:   pr.ClientSecret,
+		IntentID:       pr.IntentID,
+		Currency:       pr.Currency,
+		CountryCode:    pr.CountryCode,
+		PaymentEnv:     pr.PaymentEnv,
+		OAuth:          pr.OAuth,
+		JSAPI:          pr.JSAPI,
+		JSAPIPayload:   pr.JSAPI,
+		ExpiresAt:      order.ExpiresAt,
+		PaymentMode:    sel.PaymentMode,
 	}
 }
 

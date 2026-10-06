@@ -117,6 +117,7 @@ func (h *PaymentHandler) RetryFulfillment(c *gin.Context) {
 }
 
 type AdminPaymentOrderResult struct {
+	LedgerCurrency      string     `json:"ledger_currency"`
 	ID                  int64      `json:"id"`
 	UserID              int64      `json:"user_id"`
 	UserEmail           string     `json:"user_email,omitempty"`
@@ -175,6 +176,7 @@ func sanitizeAdminPaymentOrderForResponse(order *dbent.PaymentOrder) *AdminPayme
 		return nil
 	}
 	return &AdminPaymentOrderResult{
+		LedgerCurrency:      service.PaymentOrderLedgerCurrency(order),
 		ID:                  order.ID,
 		UserID:              order.UserID,
 		UserEmail:           order.UserEmail,

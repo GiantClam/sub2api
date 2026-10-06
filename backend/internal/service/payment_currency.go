@@ -19,9 +19,17 @@ func paymentProviderConfigCurrency(providerKey string, cfg map[string]string) st
 }
 
 func PaymentOrderCurrency(order *dbent.PaymentOrder) string {
-	if snapshot := psOrderProviderSnapshot(order); snapshot != nil {
+	if snapshot := psOrderProviderSnapshot(order); snapshot != nil && strings.TrimSpace(snapshot.Currency) != "" {
 		if currency, err := payment.NormalizePaymentCurrency(snapshot.Currency); err == nil {
 			return currency
+		}
+	}
+	// Historical money metadata must not fabricate a provider instance snapshot.
+	if order != nil {
+		if raw, ok := order.ProviderSnapshot["original_payment_currency"].(string); ok {
+			if currency, err := payment.NormalizePaymentCurrency(raw); err == nil {
+				return currency
+			}
 		}
 	}
 	return payment.DefaultPaymentCurrency

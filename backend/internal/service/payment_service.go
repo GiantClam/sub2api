@@ -88,6 +88,7 @@ type CreateOrderRequest struct {
 }
 
 type CreateOrderResponse struct {
+	LedgerCurrency                string                          `json:"ledger_currency"`
 	OrderID                       int64                           `json:"order_id"`
 	Amount                        float64                         `json:"amount"`
 	PayAmount                     float64                         `json:"pay_amount"`

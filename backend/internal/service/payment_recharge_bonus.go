@@ -271,7 +271,8 @@ type rechargeBonusQuote struct {
 	Percent float64
 }
 
-// quoteRechargeBonus 按配置模式报价。currency 用于折扣模式实付基数的精度。
+// quoteRechargeBonus 按配置模式报价。启用余额汇率时金额和优惠阈值先统一为 USD；
+// currency 保留网关实付金额的本币精度。汇率关闭时保持存量报价行为。
 // 未配置阶梯、未命中、或折扣百分比 ≥ 100（非法历史数据，fail-safe）时按无优惠处理。
 func quoteRechargeBonus(cfg *PaymentConfig, paymentAmount float64, currency string) rechargeBonusQuote {
 	multiplier := defaultBalanceRechargeMultiplier
@@ -282,10 +283,12 @@ func quoteRechargeBonus(cfg *PaymentConfig, paymentAmount float64, currency stri
 		tiers = cfg.RechargeBonusTiers
 		mode, _ = NormalizeRechargeBonusMode(cfg.RechargeBonusMode)
 	}
-	base := calculateCreditedBalance(paymentAmount, multiplier)
+	precision := balanceLedgerPrecision(cfg)
+	ledgerAmount := balanceLedgerRechargeAmount(cfg, paymentAmount, currency)
+	base := ledgerAmount.Mul(decimal.NewFromFloat(normalizeBalanceRechargeMultiplier(multiplier))).Round(precision).InexactFloat64()
 	quote := rechargeBonusQuote{PayBase: paymentAmount, Credited: base}
 
-	tier, ok := matchRechargeBonusTier(tiers, paymentAmount)
+	tier, ok := matchRechargeBonusTier(tiers, ledgerAmount.InexactFloat64())
 	if !ok || tier.BonusPercent <= 0 {
 		return quote
 	}
@@ -298,8 +301,8 @@ func quoteRechargeBonus(cfg *PaymentConfig, paymentAmount float64, currency stri
 		if payBase <= 0 || payBase >= paymentAmount {
 			return quote
 		}
-		paidCredit := calculateCreditedBalance(payBase, multiplier)
-		bonus := decimal.NewFromFloat(base).Sub(decimal.NewFromFloat(paidCredit)).Round(2).InexactFloat64()
+		paidCredit := balanceLedgerPaymentAmount(cfg, payBase, currency).Mul(decimal.NewFromFloat(normalizeBalanceRechargeMultiplier(multiplier))).Round(precision).InexactFloat64()
+		bonus := decimal.NewFromFloat(base).Sub(decimal.NewFromFloat(paidCredit)).Round(precision).InexactFloat64()
 		if bonus < 0 {
 			bonus = 0
 		}
@@ -307,12 +310,12 @@ func quoteRechargeBonus(cfg *PaymentConfig, paymentAmount float64, currency stri
 		quote.Bonus = bonus
 		quote.Percent = tier.BonusPercent
 	default:
-		bonus := calculateRechargeBonus(base, tier.BonusPercent)
+		bonus := decimal.NewFromFloat(base).Mul(decimal.NewFromFloat(tier.BonusPercent)).Div(decimal.NewFromInt(100)).Round(precision).InexactFloat64()
 		if bonus <= 0 {
 			return quote
 		}
 		quote.Bonus = bonus
-		quote.Credited = addRechargeBonus(base, bonus)
+		quote.Credited = decimal.NewFromFloat(base).Add(decimal.NewFromFloat(bonus)).Round(precision).InexactFloat64()
 		quote.Percent = tier.BonusPercent
 	}
 	return quote
@@ -328,7 +331,7 @@ func paymentOrderAmountWithoutBonus(o *dbent.PaymentOrder) float64 {
 	}
 	base := decimal.NewFromFloat(o.Amount).
 		Sub(decimal.NewFromFloat(o.BonusAmount)).
-		Round(2).
+		Round(8).
 		InexactFloat64()
 	if base < 0 {
 		return 0

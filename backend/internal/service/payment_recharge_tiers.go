@@ -19,12 +19,13 @@ const SettingPaymentRechargeTiers = "PAYMENT_RECHARGE_TIERS"
 // RechargeTier is a display preset for the existing balance-order flow.
 // Prices are explicit order amounts in each payment currency, never FX estimates.
 type RechargeTier struct {
-	ID          string          `json:"id"`
-	Name        string          `json:"name"`
-	Description string          `json:"description"`
-	OrderType   string          `json:"order_type"`
-	Prices      CurrencyAmounts `json:"prices"`
-	Featured    bool            `json:"featured,omitempty"`
+	ID              string          `json:"id"`
+	Name            string          `json:"name"`
+	Description     string          `json:"description"`
+	OrderType       string          `json:"order_type"`
+	Prices          CurrencyAmounts `json:"prices"`
+	Featured        bool            `json:"featured,omitempty"`
+	CreditedBalance *float64        `json:"credited_balance,omitempty"`
 }
 
 type RechargePaymentOption struct {
@@ -65,6 +66,7 @@ func normalizeRechargeTiers(tiers []RechargeTier) ([]RechargeTier, error) {
 	}
 	result := make([]RechargeTier, 0, len(tiers))
 	seen := make(map[string]bool, len(tiers))
+	creditsByPrice := make(map[string]string)
 	for _, tier := range tiers {
 		tier.ID = strings.TrimSpace(tier.ID)
 		tier.Name = strings.TrimSpace(tier.Name)
@@ -88,6 +90,23 @@ func normalizeRechargeTiers(tiers []RechargeTier) ([]RechargeTier, error) {
 			return nil, err
 		}
 		tier.Prices = prices
+		if tier.CreditedBalance != nil {
+			credit := *tier.CreditedBalance
+			if math.IsNaN(credit) || math.IsInf(credit, 0) || credit <= 0 || !decimal.NewFromFloat(credit).Equal(decimal.NewFromFloat(credit).Round(8)) {
+				return nil, invalidRechargeTier("USD credited_balance must be positive, finite and have at most eight decimals")
+			}
+		}
+		promise := "automatic"
+		if tier.CreditedBalance != nil {
+			promise = decimal.NewFromFloat(*tier.CreditedBalance).String()
+		}
+		for code, amount := range prices {
+			key := code + ":" + decimal.NewFromFloat(amount).String()
+			if existing, ok := creditsByPrice[key]; ok && existing != promise {
+				return nil, invalidRechargeTier("the same currency price cannot promise different USD balances")
+			}
+			creditsByPrice[key] = promise
+		}
 		result = append(result, tier)
 	}
 	return result, nil
@@ -162,6 +181,9 @@ func BuildCheckoutRechargeTiers(cfg *PaymentConfig, methods map[string]MethodLim
 			limits := methods[method]
 			code := strings.ToUpper(strings.TrimSpace(limits.Currency))
 			amount, ok := tier.Prices[code]
+			if validateBalanceLedgerCurrency(cfg, code) != nil {
+				continue
+			}
 			if !ok || validateRechargeTierAmount(amount, code) != nil || !withinRechargeRange(amount, cfg.MinAmount, cfg.MaxAmount) {
 				continue
 			}

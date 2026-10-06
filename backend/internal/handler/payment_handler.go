@@ -152,6 +152,8 @@ func (h *PaymentHandler) GetCheckoutInfo(c *gin.Context) {
 		RechargeTiers:                 service.BuildCheckoutRechargeTiers(cfg, limitsResp.Methods),
 		BalanceDisabled:               cfg.BalanceDisabled,
 		BalanceRechargeMultiplier:     cfg.BalanceRechargeMultiplier,
+		BalanceUSDToCNYRate:           cfg.BalanceUSDToCNYRate,
+		LedgerCurrency:                service.BalanceLedgerCurrency(cfg),
 		SubscriptionUSDToCNYRate:      cfg.SubscriptionUSDToCNYRate,
 		RechargeFeeRate:               cfg.RechargeFeeRate,
 		RechargeBonusTiers:            cfg.RechargeBonusTiers,
@@ -173,6 +175,8 @@ type checkoutInfoResponse struct {
 	RechargeTiers                 []service.CheckoutRechargeTier  `json:"recharge_tiers"`
 	BalanceDisabled               bool                            `json:"balance_disabled"`
 	BalanceRechargeMultiplier     float64                         `json:"balance_recharge_multiplier"`
+	BalanceUSDToCNYRate           float64                         `json:"balance_usd_to_cny_rate"`
+	LedgerCurrency                string                          `json:"ledger_currency"`
 	SubscriptionUSDToCNYRate      float64                         `json:"subscription_usd_to_cny_rate"`
 	RechargeFeeRate               float64                         `json:"recharge_fee_rate"`
 	RechargeBonusTiers            []service.RechargeBonusTier     `json:"recharge_bonus_tiers"`
@@ -489,6 +493,7 @@ func (h *PaymentHandler) VerifyOrder(c *gin.Context) {
 // proves possession of the checkout session, so the result keeps the legacy
 // frontend contract needed by payment result pages.
 type PublicOrderResult struct {
+	LedgerCurrency      string     `json:"ledger_currency"`
 	ID                  int64      `json:"id"`
 	OutTradeNo          string     `json:"out_trade_no"`
 	Amount              float64    `json:"amount"`
@@ -525,6 +530,7 @@ type PublicOrderVerifyResult struct {
 
 func buildPublicOrderResult(order *dbent.PaymentOrder) PublicOrderResult {
 	return PublicOrderResult{
+		LedgerCurrency:      service.PaymentOrderLedgerCurrency(order),
 		ID:                  order.ID,
 		OutTradeNo:          order.OutTradeNo,
 		Amount:              order.Amount,
@@ -634,6 +640,7 @@ func isMobile(c *gin.Context) bool {
 }
 
 type PaymentOrderResult struct {
+	LedgerCurrency      string     `json:"ledger_currency"`
 	ID                  int64      `json:"id"`
 	UserID              int64      `json:"user_id"`
 	Amount              float64    `json:"amount"`
@@ -673,6 +680,7 @@ func sanitizePaymentOrderForResponse(order *dbent.PaymentOrder) *PaymentOrderRes
 		return nil
 	}
 	return &PaymentOrderResult{
+		LedgerCurrency:      service.PaymentOrderLedgerCurrency(order),
 		ID:                  order.ID,
 		UserID:              order.UserID,
 		Amount:              order.Amount,

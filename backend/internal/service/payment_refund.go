@@ -233,11 +233,10 @@ func (s *PaymentService) PrepareRefund(ctx context.Context, oid int64, amt float
 	if amt <= 0 {
 		amt = o.Amount
 	}
-	orderCurrency := PaymentOrderCurrency(o)
-	if amt-o.Amount > paymentAmountToleranceForCurrency(orderCurrency) {
+	if amt-o.Amount > paymentOrderLedgerAmountTolerance(o) {
 		return nil, nil, infraerrors.BadRequest("REFUND_AMOUNT_EXCEEDED", "refund amount exceeds recharge")
 	}
-	ga := calculateGatewayRefundAmount(o.Amount, o.PayAmount, amt, orderCurrency)
+	ga := calculateGatewayRefundAmountForOrder(o, amt)
 	rr := strings.TrimSpace(reason)
 	if rr == "" && o.RefundRequestReason != nil {
 		rr = *o.RefundRequestReason
@@ -442,7 +441,7 @@ func (s *PaymentService) QueryAndFinalizeRefund(ctx context.Context, oid int64) 
 		TradeNo:  o.PaymentTradeNo,
 		OrderID:  o.OutTradeNo,
 		RefundID: pendingDetail.RefundID,
-		Amount:   formatGatewayRefundAmount(o.RefundAmount, o),
+		Amount:   formatGatewayRefundAmount(calculateGatewayRefundAmountForOrder(o, o.RefundAmount), o),
 	})
 	finishProviderCall()
 	if err != nil {
@@ -518,7 +517,7 @@ func (s *PaymentService) refundFinalizePlan(o *dbent.PaymentOrder) *RefundPlan {
 		OrderID:       o.ID,
 		Order:         o,
 		RefundAmount:  refundAmount,
-		GatewayAmount: calculateGatewayRefundAmount(o.Amount, o.PayAmount, refundAmount, PaymentOrderCurrency(o)),
+		GatewayAmount: calculateGatewayRefundAmountForOrder(o, refundAmount),
 		Reason:        reason,
 		Force:         o.ForceRefund,
 		DeductBalance: true,

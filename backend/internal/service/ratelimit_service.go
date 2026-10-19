@@ -92,8 +92,8 @@ var openCodeGoUsageLimitDurationPartPattern = regexp.MustCompile(`(?i)^([0-9]+(?
 
 const (
 	openAI403CooldownMinutesDefault = 10
-	openAI403DisableThreshold       = 3
 	openAI403CounterWindowMinutes   = 180
+	OpenAI403CooldownReasonPrefix   = "OpenAI 403 temporary cooldown"
 )
 
 // NewRateLimitService 创建RateLimitService实例
@@ -987,22 +987,21 @@ func (s *RateLimitService) handle403(ctx context.Context, account *Account, upst
 	}
 	// Kimi reports its transient per-account concurrency/business limit as a 403.
 	// Keep the normal 403 failover signal (true), but never feed this exact message
-	// into the escalating 403 counter that can permanently mark the account error.
+	// into the generic 403 cooldown counter.
 	if isCNProviderConcurrencyLimit403(account, upstreamMsg) {
 		s.handleCNProviderConcurrencyLimit403(ctx, account)
 		return true
 	}
 	// Kimi 等 CN 供应商把 Coding Plan 配额窗口耗尽打成 403
 	// （error.type=access_terminated_error），这是窗口到期后自动恢复的限流
-	// 信号而非封禁：按 429 口径冷却到真实窗口重置点，避免落入下方通用 403
-	// 升级计数后被永久 SetError。
+	// 信号而非封禁：按 429 口径冷却到真实窗口重置点，而不是通用 403 冷却时间。
 	if isCNProviderQuotaExhausted403(account, responseBody, upstreamMsg) {
 		s.handleCNProviderQuotaExhausted403(ctx, account, upstreamMsg)
 		return true
 	}
 	// 国产供应商与 openai 同口径:HTML 403(CDN/代理拦截页)不构成账号失效证据,
 	// 且 403 在 failover 状态集里会被逐账号重放——直接 SetError 会让一个坏请求/
-	// 一层坏代理连环永久禁用整组账号。走 HTML 豁免 + N 次累计 + 临时冷却。
+	// 一层坏代理连环永久禁用整组账号。走 HTML 豁免和有期限的临时冷却。
 	if account.Platform == PlatformOpenAI || IsCNProvider(account.Platform) || account.IsOpenCodeGo() {
 		return s.handleOpenAI403(ctx, account, upstreamMsg, responseBody)
 	}
@@ -1022,9 +1021,7 @@ func (s *RateLimitService) handleOpenAI403(ctx context.Context, account *Account
 	// {"error":{...}} 结构化错误。这类响应描述的是「这条链路 / 这个端点被挡了」，
 	// 不构成账号凭据或权限失效的证据——例如无效的 /v1/responses 子路径（#5334）。
 	//
-	// 据此写账号状态会把请求级错误放大成账号级处罚：首次即 temp-unschedulable，
-	// 连续 openAI403DisableThreshold 次直接永久禁用；而 403 又在 failover 状态集里，
-	// 同一个坏请求会被逐个账号重放，足以把整组账号打下线。
+	// 请求级错误不应升级为账号级处罚；同一个坏请求可能被逐账号重放。
 	//
 	// 与既有口径一致：count_tokens 路径的 isOpenAIOAuthInputTokensUnsupported 已把
 	// 「HTML 403 page without a structured error」按端点级响应处理；
@@ -1049,6 +1046,22 @@ func (s *RateLimitService) handleOpenAI403(ctx context.Context, account *Account
 		return false
 	}
 
+	// Structured credential/access-state failures are durable account evidence.
+	// Keep the existing stream classifier as the source of truth for explicit
+	// credential codes and the access-state classifier for suspended/disabled
+	// workspaces. Generic 403s (including balance/quota failures) remain bounded
+	// cooldowns below so they can recover when the upstream state changes.
+	if isOpenAIPermanent403CredentialFailure(responseBody) {
+		msg := buildForbiddenErrorMessage(
+			"Access forbidden (403):",
+			upstreamMsg,
+			responseBody,
+			"account credentials or access state is invalid",
+		)
+		s.handleAuthError(ctx, account, msg)
+		return true
+	}
+
 	msg := buildForbiddenErrorMessage(
 		"Access forbidden (403):",
 		upstreamMsg,
@@ -1056,30 +1069,22 @@ func (s *RateLimitService) handleOpenAI403(ctx context.Context, account *Account
 		"account may be suspended or lack permissions",
 	)
 
-	if s.openAI403CounterCache == nil {
-		s.handleAuthError(ctx, account, msg)
-		return true
-	}
-
-	count, err := s.openAI403CounterCache.IncrementOpenAI403Count(ctx, account.ID, openAI403CounterWindowMinutes)
-	if err != nil {
-		slog.Warn("openai_403_increment_failed", "account_id", account.ID, "error", err)
-		s.handleAuthError(ctx, account, msg)
-		return true
-	}
-
-	if count >= openAI403DisableThreshold {
-		msg = fmt.Sprintf("%s | consecutive_403=%d/%d", msg, count, openAI403DisableThreshold)
-		s.handleAuthError(ctx, account, msg)
-		return true
+	// The counter is diagnostic only. Repeated 403 responses and unavailable
+	// optional dependencies must never turn a bounded cooldown into SetError.
+	var count int64
+	if s.openAI403CounterCache != nil {
+		var err error
+		count, err = s.openAI403CounterCache.IncrementOpenAI403Count(ctx, account.ID, openAI403CounterWindowMinutes)
+		if err != nil {
+			slog.Warn("openai_403_increment_failed", "account_id", account.ID, "error", err)
+		}
 	}
 
 	until := time.Now().Add(time.Duration(openAI403CooldownMinutesDefault) * time.Minute)
-	reason := fmt.Sprintf("OpenAI 403 temporary cooldown (%d/%d): %s", count, openAI403DisableThreshold, msg)
+	reason := fmt.Sprintf("%s: %s | consecutive_403=%d", OpenAI403CooldownReasonPrefix, msg, count)
 	s.notifyAccountSchedulingBlocked(account, until, "openai_403_temp")
 	if err := s.accountRepo.SetTempUnschedulable(ctx, account.ID, until, reason); err != nil {
 		slog.Warn("openai_403_set_temp_unschedulable_failed", "account_id", account.ID, "error", err)
-		s.handleAuthError(ctx, account, msg)
 		return true
 	}
 
@@ -1088,9 +1093,13 @@ func (s *RateLimitService) handleOpenAI403(ctx context.Context, account *Account
 		"account_id", account.ID,
 		"until", until,
 		"count", count,
-		"threshold", openAI403DisableThreshold,
 	)
 	return true
+}
+
+func isOpenAIPermanent403CredentialFailure(responseBody []byte) bool {
+	return openAIStreamCredentialAuthFailure(responseBody) ||
+		isOpenAIUpstreamAccessStateError("", responseBody)
 }
 
 // isCloudflareBotBlockResponse reports Cloudflare's WAF bot-signature response

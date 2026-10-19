@@ -227,7 +227,7 @@ func TestHandle403_CNProviderStructured403TempUnschedulableFirstHit(t *testing.T
 	require.True(t, shouldDisable)
 	require.Equal(t, 0, repo.setErrorCalls, "首次结构化 403 应临时停调而非永久禁用")
 	require.Equal(t, 1, repo.tempCalls)
-	require.Contains(t, repo.lastTempReason, "(1/3)")
+	require.Contains(t, repo.lastTempReason, "consecutive_403=1")
 }
 
 func TestIsCNProviderConcurrencyLimit403_ExactClassification(t *testing.T) {
@@ -255,7 +255,7 @@ func TestIsCNProviderConcurrencyLimit403_ExactClassification(t *testing.T) {
 
 func TestHandle403_OtherCNProviderWithKimiConcurrencyMessageUsesNormalPolicy(t *testing.T) {
 	repo := &rateLimitAccountRepoStub{}
-	counter := &openAI403CounterCacheStub{counts: []int64{openAI403DisableThreshold}}
+	counter := &openAI403CounterCacheStub{counts: []int64{3}}
 	blocker := &runtimeBlockRecorder{}
 	service := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
 	service.SetOpenAI403CounterCache(counter)
@@ -268,15 +268,15 @@ func TestHandle403_OtherCNProviderWithKimiConcurrencyMessageUsesNormalPolicy(t *
 	)
 
 	require.True(t, shouldDisable)
-	require.Equal(t, 1, repo.setErrorCalls, "non-Kimi CN provider must retain the normal permanent-error policy")
-	require.Equal(t, 0, repo.tempCalls)
+	require.Zero(t, repo.setErrorCalls, "normal OpenAI-compatible 403 policy stays temporary")
+	require.Equal(t, 1, repo.tempCalls)
 	require.Empty(t, counter.counts, "normal CN 403 policy must consume the counter result")
-	require.Equal(t, []string{"auth_error"}, blocker.reasons, "the Kimi-specific runtime block must not apply")
+	require.Equal(t, []string{"openai_403_temp"}, blocker.reasons, "the Kimi-specific runtime block must not apply")
 }
 
 func TestHandle403_CNProviderConcurrencyLimitAlwaysUsesTemporaryCooldown(t *testing.T) {
 	repo := &rateLimitAccountRepoStub{}
-	counter := &openAI403CounterCacheStub{counts: []int64{openAI403DisableThreshold}}
+	counter := &openAI403CounterCacheStub{counts: []int64{3}}
 	blocker := &runtimeBlockRecorder{}
 	service := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
 	service.SetOpenAI403CounterCache(counter)
@@ -292,7 +292,7 @@ func TestHandle403_CNProviderConcurrencyLimitAlwaysUsesTemporaryCooldown(t *test
 	require.Equal(t, 0, repo.setErrorCalls)
 	require.Equal(t, 1, repo.tempCalls)
 	require.Contains(t, repo.lastTempReason, cnConcurrencyLimitReasonPrefix)
-	require.Equal(t, []int64{openAI403DisableThreshold}, counter.counts, "transient concurrency 403 must bypass the permanent-error counter")
+	require.Equal(t, []int64{3}, counter.counts, "transient concurrency 403 must bypass the generic 403 counter")
 	require.Len(t, blocker.accounts, 1)
 	require.Equal(t, cnConcurrencyLimitReasonPrefix, blocker.reasons[0])
 	require.True(t, blocker.until[0].After(time.Now()))
@@ -300,7 +300,7 @@ func TestHandle403_CNProviderConcurrencyLimitAlwaysUsesTemporaryCooldown(t *test
 
 func TestHandle403_KimiConcurrencyLimitRepositoryFailureKeepsRuntimeBlock(t *testing.T) {
 	repo := &rateLimitAccountRepoStub{tempErr: errors.New("repository unavailable")}
-	counter := &openAI403CounterCacheStub{counts: []int64{openAI403DisableThreshold}}
+	counter := &openAI403CounterCacheStub{counts: []int64{3}}
 	blocker := &runtimeBlockRecorder{}
 	service := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
 	service.SetOpenAI403CounterCache(counter)
@@ -315,16 +315,16 @@ func TestHandle403_KimiConcurrencyLimitRepositoryFailureKeepsRuntimeBlock(t *tes
 	require.True(t, shouldDisable, "the current request must fail over even when persistence fails")
 	require.Equal(t, 1, repo.tempCalls, "the temporary cooldown should still be persisted when possible")
 	require.Equal(t, 0, repo.setErrorCalls, "persistence failure must not fall back to permanent account error")
-	require.Equal(t, []int64{openAI403DisableThreshold}, counter.counts, "persistence failure must not enter the permanent-error counter path")
+	require.Equal(t, []int64{3}, counter.counts, "persistence failure must not enter the generic 403 counter path")
 	require.Len(t, blocker.accounts, 1, "the in-memory runtime block must survive repository failure")
 	require.Same(t, account, blocker.accounts[0])
 	require.Equal(t, cnConcurrencyLimitReasonPrefix, blocker.reasons[0])
 	require.True(t, blocker.until[0].After(time.Now()))
 }
 
-func TestHandle403_CNProviderNearMatchRetainsNormalPermanentErrorPolicy(t *testing.T) {
+func TestHandle403_CNProviderNearMatchRetainsNormalCooldownPolicy(t *testing.T) {
 	repo := &rateLimitAccountRepoStub{}
-	counter := &openAI403CounterCacheStub{counts: []int64{openAI403DisableThreshold}}
+	counter := &openAI403CounterCacheStub{counts: []int64{3}}
 	service := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
 	service.SetOpenAI403CounterCache(counter)
 	account := &Account{ID: 404, Platform: PlatformKimi, Type: AccountTypeAPIKey}
@@ -335,6 +335,6 @@ func TestHandle403_CNProviderNearMatchRetainsNormalPermanentErrorPolicy(t *testi
 	)
 
 	require.True(t, shouldDisable)
-	require.Equal(t, 1, repo.setErrorCalls, "non-exact 403 must retain existing permission/auth protection")
-	require.Equal(t, 0, repo.tempCalls)
+	require.Zero(t, repo.setErrorCalls, "non-exact 403 must remain a bounded cooldown")
+	require.Equal(t, 1, repo.tempCalls)
 }

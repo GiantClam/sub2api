@@ -372,9 +372,10 @@ func TestRateLimitService_HandleUpstreamError_403PreservesOriginalUpstreamMessag
 	)
 
 	require.True(t, shouldDisable)
-	require.Equal(t, 1, repo.setErrorCalls)
-	require.Contains(t, repo.lastErrorMsg, "workspace forbidden by policy")
-	require.NotContains(t, repo.lastErrorMsg, "account may be suspended or lack permissions")
+	require.Zero(t, repo.setErrorCalls)
+	require.Equal(t, 1, repo.tempCalls)
+	require.Contains(t, repo.lastTempReason, "workspace forbidden by policy")
+	require.NotContains(t, repo.lastTempReason, "account may be suspended or lack permissions")
 }
 
 func TestRateLimitService_HandleUpstreamError_403FallsBackToRawBody(t *testing.T) {
@@ -395,10 +396,11 @@ func TestRateLimitService_HandleUpstreamError_403FallsBackToRawBody(t *testing.T
 	)
 
 	require.True(t, shouldDisable)
-	require.Equal(t, 1, repo.setErrorCalls)
-	require.Contains(t, repo.lastErrorMsg, `"access_denied"`)
-	require.Contains(t, repo.lastErrorMsg, `"ip_blocked"`)
-	require.NotContains(t, repo.lastErrorMsg, "account may be suspended or lack permissions")
+	require.Zero(t, repo.setErrorCalls)
+	require.Equal(t, 1, repo.tempCalls)
+	require.Contains(t, repo.lastTempReason, `"access_denied"`)
+	require.Contains(t, repo.lastTempReason, `"ip_blocked"`)
+	require.NotContains(t, repo.lastTempReason, "account may be suspended or lack permissions")
 }
 
 func TestNormalizedCodexLimits_OnlySecondaryData(t *testing.T) {

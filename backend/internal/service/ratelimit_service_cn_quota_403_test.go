@@ -108,7 +108,7 @@ func TestHandleUpstreamError_KimiConcurrencyLimit403StillUsesConcurrencyPath(t *
 	require.Contains(t, repo.lastTempReason, cnConcurrencyLimitReasonPrefix)
 }
 
-func TestHandleUpstreamError_KimiGeneric403StillEscalates(t *testing.T) {
+func TestHandleUpstreamError_KimiGeneric403StillUsesBoundedCooldown(t *testing.T) {
 	repo := &rateLimitAccountRepoStub{}
 	counter := &openAI403CounterCacheStub{counts: []int64{3}}
 	service := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
@@ -118,7 +118,8 @@ func TestHandleUpstreamError_KimiGeneric403StillEscalates(t *testing.T) {
 	shouldDisable := runKimi403(service, account, `{"error":{"message":"policy rejected this request"}}`)
 
 	require.True(t, shouldDisable)
-	require.Equal(t, 1, repo.setErrorCalls, "non-quota 403 keeps the generic escalation path")
+	require.Zero(t, repo.setErrorCalls, "non-quota 403 keeps the generic bounded cooldown")
+	require.Equal(t, 1, repo.tempCalls)
 	require.Equal(t, 0, repo.rateLimitedCalls)
 }
 
@@ -133,9 +134,9 @@ func TestHandleUpstreamError_KimiNonCodingPlanQuotaMessageUsesGeneric403(t *test
 	shouldDisable := runKimi403(service, account, kimiWeeklyQuotaExhaustedBody)
 
 	require.True(t, shouldDisable)
-	require.Equal(t, 1, repo.setErrorCalls, "non-coding-plan account must keep the generic 403 escalation")
+	require.Zero(t, repo.setErrorCalls, "non-coding-plan account must keep the generic bounded cooldown")
 	require.Equal(t, 0, repo.rateLimitedCalls)
-	require.Equal(t, 0, repo.tempCalls)
+	require.Equal(t, 1, repo.tempCalls)
 }
 
 func TestHandleUpstreamError_NonCNAccessTerminated403KeepsGenericPath(t *testing.T) {
@@ -155,7 +156,7 @@ func TestHandleUpstreamError_NonCNAccessTerminated403KeepsGenericPath(t *testing
 	require.Equal(t, 0, repo.rateLimitedCalls, "non-CN platform must not enter the CN quota path")
 	require.Equal(t, 0, repo.setErrorCalls)
 	require.Equal(t, 1, repo.tempCalls)
-	require.Contains(t, repo.lastTempReason, "(1/3)")
+	require.Contains(t, repo.lastTempReason, "consecutive_403=1")
 }
 
 func TestIsCNProviderQuotaExhausted403_Classification(t *testing.T) {

@@ -93,11 +93,11 @@ func TestHandleUpstreamError_OpenAIHTML403DoesNotPenalizeAccount(t *testing.T) {
 }
 
 // 一个持有 API Key 的调用方反复打无效子路径时，既有实现会在第
-// openAI403DisableThreshold 次把账号永久禁用。修复后连续多少次都不该升级。
+// 多次把账号永久禁用。修复后连续多少次都不该升级。
 func TestHandleUpstreamError_OpenAIHTML403RepeatedNeverEscalates(t *testing.T) {
 	h := newOpenAI403TestHarness(t, 502, 1, 2, 3, 4, 5)
 
-	for i := 0; i < openAI403DisableThreshold+2; i++ {
+	for i := 0; i < 5; i++ {
 		require.False(t, h.handle(openAI403HTMLBody), "第 %d 次 HTML 403 仍不得判定账号应下线", i+1)
 	}
 
@@ -109,7 +109,7 @@ func TestHandleUpstreamError_OpenAICloudflare1010DoesNotPenalizeAccount(t *testi
 		t.Run(platform, func(t *testing.T) {
 			repo := &rateLimitAccountRepoStub{}
 			counter := &countingOpenAI403CounterCache{
-				openAI403CounterCacheStub: openAI403CounterCacheStub{counts: []int64{openAI403DisableThreshold}},
+				openAI403CounterCacheStub: openAI403CounterCacheStub{counts: []int64{3}},
 			}
 			blocker := &runtimeBlockRecorder{}
 			svc := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
@@ -130,8 +130,7 @@ func TestHandleUpstreamError_OpenAICloudflare1010DoesNotPenalizeAccount(t *testi
 	}
 }
 
-// 对照不变式：真正的结构化 JSON 403 是账号级证据，处罚链路必须原样保留。
-// 缺了这组断言，上面的跳过逻辑一旦写宽就会把真实的封号 403 也放过去。
+// 结构化 JSON 403 仍须临时冷却，不能被 HTML/WAF 豁免逻辑意外放行。
 func TestHandleUpstreamError_OpenAIStructured403StillPenalizes(t *testing.T) {
 	t.Run("first_hit_temp_unschedulable", func(t *testing.T) {
 		h := newOpenAI403TestHarness(t, 503, 1)
@@ -144,12 +143,13 @@ func TestHandleUpstreamError_OpenAIStructured403StillPenalizes(t *testing.T) {
 		require.Len(t, h.blocker.accounts, 1)
 	})
 
-	t.Run("threshold_disables", func(t *testing.T) {
-		h := newOpenAI403TestHarness(t, 504, int64(openAI403DisableThreshold))
+	t.Run("repeated_hit_stays_temporary", func(t *testing.T) {
+		h := newOpenAI403TestHarness(t, 504, 3)
 
 		require.True(t, h.handle(`{"error":{"message":"workspace forbidden by policy"}}`))
-		require.Equal(t, 1, h.repo.setErrorCalls)
-		require.Contains(t, h.repo.lastErrorMsg, "workspace forbidden by policy")
+		require.Zero(t, h.repo.setErrorCalls)
+		require.Equal(t, 1, h.repo.tempCalls)
+		require.Contains(t, h.repo.lastTempReason, "workspace forbidden by policy")
 	})
 
 	// 非 HTML 的非结构化响应（纯文本网关错误）不在本次放行范围内，维持原有处罚。

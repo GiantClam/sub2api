@@ -7,13 +7,18 @@ import (
 	"time"
 )
 
-// AccountExpiryService periodically pauses expired accounts when auto-pause is enabled.
+// AccountExpiryService maintains account expiry and bounded system cooldowns.
 type AccountExpiryService struct {
 	accountRepo AccountRepository
 	interval    time.Duration
 	stopCh      chan struct{}
 	stopOnce    sync.Once
 	wg          sync.WaitGroup
+}
+
+// Optional so repositories that only support account expiry remain compatible.
+type expiredOpenAI403CooldownRecoverer interface {
+	RecoverExpiredOpenAI403Cooldowns(ctx context.Context, now time.Time) (int64, error)
 }
 
 func NewAccountExpiryService(accountRepo AccountRepository, interval time.Duration) *AccountExpiryService {
@@ -57,15 +62,23 @@ func (s *AccountExpiryService) Stop() {
 }
 
 func (s *AccountExpiryService) runOnce() {
+	now := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	updated, err := s.accountRepo.AutoPauseExpiredAccounts(ctx, time.Now())
+	updated, err := s.accountRepo.AutoPauseExpiredAccounts(ctx, now)
+	cancel()
 	if err != nil {
 		log.Printf("[AccountExpiry] Auto pause expired accounts failed: %v", err)
-		return
-	}
-	if updated > 0 {
+	} else if updated > 0 {
 		log.Printf("[AccountExpiry] Auto paused %d expired accounts", updated)
+	}
+	if recoverer, ok := s.accountRepo.(expiredOpenAI403CooldownRecoverer); ok {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		updated, err = recoverer.RecoverExpiredOpenAI403Cooldowns(ctx, now)
+		if err != nil {
+			log.Printf("[AccountExpiry] Recover expired OpenAI 403 cooldowns failed: %v", err)
+		} else if updated > 0 {
+			log.Printf("[AccountExpiry] Recovered %d expired OpenAI 403 cooldowns", updated)
+		}
 	}
 }

@@ -45,6 +45,9 @@ func (s *PaymentService) GetPublicOrderByResumeToken(ctx context.Context, token 
 	if claims.PaymentType != "" && NormalizeVisibleMethod(order.PaymentType) != NormalizeVisibleMethod(claims.PaymentType) {
 		return nil, invalidResumeTokenMatchError()
 	}
+	if err := s.checkOrderEasyPayMaintenance(ctx, order); err != nil {
+		return nil, err
+	}
 	if order.Status == OrderStatusPending || order.Status == OrderStatusExpired {
 		result := s.reconcilePaid(ctx, order)
 		if result == checkPaidResultAlreadyPaid {

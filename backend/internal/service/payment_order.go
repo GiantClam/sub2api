@@ -386,6 +386,9 @@ func (s *PaymentService) selectCreateOrderInstance(ctx context.Context, req Crea
 	if sel == nil {
 		return nil, infraerrors.TooManyRequests("NO_AVAILABLE_INSTANCE", "no_available_instance")
 	}
+	if err := CheckEasyPayMaintenance(sel.ProviderKey); err != nil {
+		return nil, err
+	}
 	return sel, nil
 }
 
@@ -425,6 +428,9 @@ func (s *PaymentService) usesOfficialWxpayVisibleMethod(ctx context.Context) boo
 }
 
 func (s *PaymentService) invokeProvider(ctx context.Context, order *dbent.PaymentOrder, req CreateOrderRequest, cfg *PaymentConfig, limitAmount float64, payAmountStr string, payAmount float64, plan *dbent.SubscriptionPlan, sel *payment.InstanceSelection) (*CreateOrderResponse, error) {
+	if err := CheckEasyPayMaintenance(sel.ProviderKey); err != nil {
+		return nil, err
+	}
 	prov, err := provider.CreateProvider(sel.ProviderKey, sel.InstanceID, sel.Config)
 	if err != nil {
 		slog.Error("[PaymentService] CreateProvider failed", "provider", sel.ProviderKey, "instance", sel.InstanceID, "error", err)

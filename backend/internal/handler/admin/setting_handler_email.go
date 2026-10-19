@@ -104,14 +104,17 @@ func (h *SettingHandler) SendTestEmail(c *gin.Context) {
 		return
 	}
 
+	useCloudflare := h.emailService.IsCloudflareAuthEmailEnabled()
 	req.SMTPHost = strings.TrimSpace(req.SMTPHost)
 	req.SMTPUsername = strings.TrimSpace(req.SMTPUsername)
 	req.SMTPFrom = strings.TrimSpace(req.SMTPFrom)
 	req.SMTPFromName = strings.TrimSpace(req.SMTPFromName)
 
 	var savedConfig *service.SMTPConfig
-	if cfg, err := h.emailService.GetSMTPConfig(c.Request.Context()); err == nil && cfg != nil {
-		savedConfig = cfg
+	if !useCloudflare {
+		if cfg, err := h.emailService.GetSMTPConfig(c.Request.Context()); err == nil && cfg != nil {
+			savedConfig = cfg
+		}
 	}
 
 	if req.SMTPHost == "" && savedConfig != nil {
@@ -137,7 +140,7 @@ func (h *SettingHandler) SendTestEmail(c *gin.Context) {
 	if req.SMTPFromName == "" && savedConfig != nil {
 		req.SMTPFromName = savedConfig.FromName
 	}
-	if req.SMTPHost == "" {
+	if req.SMTPHost == "" && !useCloudflare {
 		response.BadRequest(c, "SMTP host is required")
 		return
 	}
@@ -176,7 +179,7 @@ func (h *SettingHandler) SendTestEmail(c *gin.Context) {
         <div class="content">
             <div class="success">✓</div>
             <h2>Email Configuration Successful!</h2>
-            <p>This is a test email to verify your SMTP settings are working correctly.</p>
+            <p>This is a test email to verify your email delivery settings are working correctly.</p>
         </div>
         <div class="footer">
             <p>This is an automated test message.</p>
@@ -186,8 +189,14 @@ func (h *SettingHandler) SendTestEmail(c *gin.Context) {
 </html>
 `
 
-	if err := h.emailService.SendEmailWithConfig(config, req.Email, subject, body); err != nil {
-		response.BadRequest(c, "Failed to send test email: "+err.Error())
+	var sendErr error
+	if useCloudflare {
+		sendErr = h.emailService.SendTestEmail(c.Request.Context(), req.Email, subject, body)
+	} else {
+		sendErr = h.emailService.SendEmailWithConfig(config, req.Email, subject, body)
+	}
+	if sendErr != nil {
+		response.BadRequest(c, "Failed to send test email: "+sendErr.Error())
 		return
 	}
 

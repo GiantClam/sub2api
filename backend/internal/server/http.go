@@ -92,6 +92,13 @@ func ProvideRouter(
 }
 
 func configureTrustedProxies(r *gin.Engine, cfg config.ServerConfig) {
+	if cfg.ClientIPMode == "railway" {
+		// Railway guarantees X-Real-IP, not sanitation of client-supplied XFF.
+		// Gin still checks the socket peer against TrustedProxies before using it.
+		// Do not trust CF-Connecting-IP without a separately proven CF origin path.
+		r.RemoteIPHeaders = []string{"X-Real-IP"}
+		r.TrustedPlatform = ""
+	}
 	if cfg.TrustedProxiesConfigured {
 		if err := r.SetTrustedProxies(cfg.TrustedProxies); err != nil {
 			log.Printf("Failed to set trusted proxies: %v", err)

@@ -225,6 +225,16 @@ func (s *emailCacheStub) IncrNotifyCodeUserRate(ctx context.Context, userID int6
 }
 
 func newAuthService(repo *userRepoStub, settings map[string]string, emailCache EmailCache, quotaRepo UserPlatformQuotaRepository) *AuthService {
+	if settings != nil {
+		// A disabled verification policy must be explicit, as in initialized
+		// installations; missing settings are now an unavailable policy.
+		values := make(map[string]string, len(settings)+1)
+		values[SettingKeyEmailVerifyEnabled] = "false"
+		for key, value := range settings {
+			values[key] = value
+		}
+		settings = values
+	}
 	cfg := &config.Config{
 		JWT: config.JWTConfig{
 			Secret:     "test-secret",

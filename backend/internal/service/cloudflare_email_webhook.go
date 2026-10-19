@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -19,6 +18,7 @@ import (
 const (
 	cloudflareEmailWebhookURLEnv    = "CLOUDFLARE_EMAIL_WEBHOOK_URL"
 	cloudflareEmailWebhookSecretEnv = "CLOUDFLARE_EMAIL_WEBHOOK_SECRET"
+	cloudflareAuthEmailEnabledEnv   = "CLOUDFLARE_AUTH_EMAIL_ENABLED"
 	cloudflareEmailWebhookTimeout   = 15 * time.Second
 )
 
@@ -88,8 +88,9 @@ func (w *CloudflareEmailWebhook) Send(ctx context.Context, input CloudflareEmail
 	}
 	defer response.Body.Close()
 	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
-		detail, _ := io.ReadAll(io.LimitReader(response.Body, 2048))
-		return fmt.Errorf("cloudflare email webhook returned %s: %s", response.Status, strings.TrimSpace(string(detail)))
+		// Worker/proxy errors can echo the signed payload, including verification
+		// codes. Queue workers log this error, so report only the numeric status.
+		return fmt.Errorf("cloudflare email webhook returned HTTP %d", response.StatusCode)
 	}
 	return nil
 }

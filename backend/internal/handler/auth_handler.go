@@ -185,12 +185,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 
 	// 验证当前启用的验证码（邮箱验证码注册场景避免重复校验一次性票据）
 	proof := captchaProof(req.TurnstileToken, req.TencentCaptchaTicket, req.TencentCaptchaRandstr)
-	if err := h.authService.VerifyCaptchaForRegister(c.Request.Context(), proof, ip.GetClientIP(c), req.VerifyCode); err != nil {
-		response.ErrorFrom(c, err)
-		return
-	}
-
-	_, user, err := h.authService.RegisterWithVerification(
+	_, user, err := h.authService.RegisterWithCaptcha(
 		c.Request.Context(),
 		req.Email,
 		req.Password,
@@ -198,6 +193,8 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		req.PromoCode,
 		req.InvitationCode,
 		req.AffCode,
+		proof,
+		ip.GetClientIP(c),
 	)
 	if err != nil {
 		response.ErrorFrom(c, err)
@@ -229,7 +226,7 @@ func (h *AuthHandler) SendVerifyCode(c *gin.Context) {
 	}
 
 	response.Success(c, SendVerifyCodeResponse{
-		Message:   "Verification code sent successfully",
+		Message:   "Verification code queued for delivery",
 		Countdown: result.Countdown,
 	})
 }

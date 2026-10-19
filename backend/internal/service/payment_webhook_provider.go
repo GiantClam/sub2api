@@ -30,6 +30,9 @@ func (s *PaymentService) GetWebhookProvider(ctx context.Context, providerKey, ou
 // Official WeChat Pay may require multiple candidates because the callback body
 // cannot be bound to a merchant before decryption.
 func (s *PaymentService) GetWebhookProviders(ctx context.Context, providerKey, outTradeNo string) ([]payment.Provider, error) {
+	if err := CheckEasyPayMaintenance(providerKey); err != nil {
+		return nil, err
+	}
 	if outTradeNo != "" {
 		order, err := s.entClient.PaymentOrder.Query().Where(paymentorder.OutTradeNo(outTradeNo)).Only(ctx)
 		if err == nil {

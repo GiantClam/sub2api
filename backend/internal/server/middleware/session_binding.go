@@ -18,6 +18,11 @@ import (
 func SessionBindingContext(cfg *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		forwardedIPSettings := cfg.ForwardedClientIPSettings()
+		if cfg.Server.ClientIPMode == "railway" {
+			// The explicit ingress contract must not be overridden by the legacy
+			// database switch or raw custom/Cloudflare forwarding headers.
+			forwardedIPSettings.TrustForwardedIP = false
+		}
 		ip.SetForwardedIPSettings(c, forwardedIPSettings.TrustForwardedIP, forwardedIPSettings.Headers)
 		userAgent := normalizePersistentText(c.Request.UserAgent(), maxPersistentUserAgentBytes)
 		c.Request.Header.Set("User-Agent", userAgent)

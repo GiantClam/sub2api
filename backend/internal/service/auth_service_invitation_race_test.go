@@ -133,6 +133,7 @@ func TestAuthService_Register_InvitationCodeSingleUseUnderConcurrency(t *testing
 	}}
 	settings := map[string]string{
 		"registration_enabled":    "true",
+		"email_verify_enabled":    "false",
 		"invitation_code_enabled": "true",
 	}
 	svc := newOAuthEmailFlowAuthService(
@@ -194,6 +195,7 @@ func TestAuthService_Register_InvitationCodeRejectedWhenAlreadyUsed(t *testing.T
 	}}
 	settings := map[string]string{
 		"registration_enabled":    "true",
+		"email_verify_enabled":    "false",
 		"invitation_code_enabled": "true",
 	}
 	svc := newOAuthEmailFlowAuthService(
@@ -216,6 +218,7 @@ func TestAuthService_Register_InvitationCodeMissingWhenEnabled(t *testing.T) {
 	redeemRepo := &raceSafeRedeemRepo{codes: map[string]*RedeemCode{}}
 	settings := map[string]string{
 		"registration_enabled":    "true",
+		"email_verify_enabled":    "false",
 		"invitation_code_enabled": "true",
 	}
 	svc := newOAuthEmailFlowAuthService(

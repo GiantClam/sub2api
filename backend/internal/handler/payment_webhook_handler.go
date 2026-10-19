@@ -69,6 +69,10 @@ func (h *PaymentWebhookHandler) AirwallexWebhook(c *gin.Context) {
 
 // handleNotify is the shared logic for all provider webhook handlers.
 func (h *PaymentWebhookHandler) handleNotify(c *gin.Context, providerKey string) {
+	if err := service.CheckEasyPayMaintenance(providerKey); err != nil {
+		c.String(http.StatusServiceUnavailable, "EasyPay payments are temporarily unavailable")
+		return
+	}
 	var rawBody string
 	if c.Request.Method == http.MethodGet {
 		// GET callbacks (e.g. EasyPay) pass params as URL query string
@@ -89,6 +93,10 @@ func (h *PaymentWebhookHandler) handleNotify(c *gin.Context, providerKey string)
 
 	providers, err := h.paymentService.GetWebhookProviders(c.Request.Context(), providerKey, outTradeNo)
 	if err != nil {
+		if errors.Is(err, service.ErrEasyPayMaintenance) {
+			c.String(http.StatusServiceUnavailable, "EasyPay payments are temporarily unavailable")
+			return
+		}
 		slog.Warn("[Payment Webhook] provider not found", "provider", providerKey, "outTradeNo", outTradeNo, "error", err)
 		if providerKey == payment.TypeWxpay {
 			c.String(http.StatusBadRequest, "verify failed")
@@ -122,6 +130,10 @@ func (h *PaymentWebhookHandler) handleNotify(c *gin.Context, providerKey string)
 	}
 
 	if err := h.paymentService.HandlePaymentNotification(c.Request.Context(), notification, resolvedProviderKey); err != nil {
+		if errors.Is(err, service.ErrEasyPayMaintenance) {
+			c.String(http.StatusServiceUnavailable, "EasyPay payments are temporarily unavailable")
+			return
+		}
 		// Unknown order: ack with 2xx so the provider stops retrying. This
 		// guards against foreign environments whose webhook endpoints are
 		// (mis)configured to point at us — without a 2xx, the provider will

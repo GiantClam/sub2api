@@ -37,6 +37,9 @@ type paymentFulfillmentLease struct {
 // --- Payment Notification & Fulfillment ---
 
 func (s *PaymentService) HandlePaymentNotification(ctx context.Context, n *payment.PaymentNotification, pk string) error {
+	if err := CheckEasyPayMaintenance(pk); err != nil {
+		return err
+	}
 	if n.Status != payment.NotificationStatusSuccess {
 		return nil
 	}
@@ -82,6 +85,9 @@ func (s *PaymentService) confirmPayment(ctx context.Context, oid int64, tradeNo 
 		return nil
 	}
 	instanceProviderKey := ""
+	if err := s.checkOrderEasyPayMaintenance(ctx, o); err != nil {
+		return err
+	}
 	if inst, instErr := s.getOrderProviderInstance(ctx, o); instErr == nil && inst != nil {
 		instanceProviderKey = inst.ProviderKey
 	}
@@ -228,6 +234,9 @@ func (s *PaymentService) ExecuteBalanceFulfillment(ctx context.Context, oid int6
 	o, err := s.entClient.PaymentOrder.Get(ctx, oid)
 	if err != nil {
 		return infraerrors.NotFound("NOT_FOUND", "order not found")
+	}
+	if err := s.checkOrderEasyPayMaintenance(ctx, o); err != nil {
+		return err
 	}
 	if o.Status == OrderStatusCompleted {
 		return nil
@@ -510,6 +519,9 @@ func (s *PaymentService) ExecuteSubscriptionFulfillment(ctx context.Context, oid
 	o, err := s.entClient.PaymentOrder.Get(ctx, oid)
 	if err != nil {
 		return infraerrors.NotFound("NOT_FOUND", "order not found")
+	}
+	if err := s.checkOrderEasyPayMaintenance(ctx, o); err != nil {
+		return err
 	}
 	if o.Status == OrderStatusCompleted {
 		return nil
@@ -872,6 +884,9 @@ func (s *PaymentService) RetryFulfillment(ctx context.Context, oid int64) error 
 	o, err := s.entClient.PaymentOrder.Get(ctx, oid)
 	if err != nil {
 		return infraerrors.NotFound("NOT_FOUND", "order not found")
+	}
+	if err := s.checkOrderEasyPayMaintenance(ctx, o); err != nil {
+		return err
 	}
 	if o.PaidAt == nil {
 		return infraerrors.BadRequest("INVALID_STATUS", "order is not paid")

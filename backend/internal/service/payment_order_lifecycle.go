@@ -290,6 +290,9 @@ func (s *PaymentService) VerifyOrderByOutTradeNo(ctx context.Context, outTradeNo
 		return nil, infraerrors.Forbidden("FORBIDDEN", "no permission for this order")
 	}
 	// Only verify orders that are still pending or recently expired
+	if err := s.checkOrderEasyPayMaintenance(ctx, o); err != nil {
+		return nil, err
+	}
 	if o.Status == OrderStatusPending || o.Status == OrderStatusExpired {
 		result := s.reconcilePaid(ctx, o)
 		if result == checkPaidResultAlreadyPaid {
@@ -401,6 +404,9 @@ func (s *PaymentService) ExpireTimedOutOrders(ctx context.Context) (int, error) 
 // getOrderProvider creates a provider using the order's original instance config.
 // Falls back to registry lookup if instance ID is missing (legacy orders).
 func (s *PaymentService) getOrderProvider(ctx context.Context, o *dbent.PaymentOrder) (payment.Provider, error) {
+	if err := s.checkOrderEasyPayMaintenance(ctx, o); err != nil {
+		return nil, err
+	}
 	inst, err := s.getOrderProviderInstance(ctx, o)
 	if err != nil {
 		return nil, fmt.Errorf("load order provider instance: %w", err)
@@ -419,7 +425,14 @@ func (s *PaymentService) getOrderProvider(ctx context.Context, o *dbent.PaymentO
 		return nil, fmt.Errorf("order %d provider fallback is ambiguous for %s", o.ID, providerKey)
 	}
 	s.EnsureProviders(ctx)
-	return s.registry.GetProvider(o.PaymentType)
+	prov, err := s.registry.GetProvider(o.PaymentType)
+	if err != nil {
+		return nil, err
+	}
+	if err := CheckEasyPayMaintenance(prov.ProviderKey()); err != nil {
+		return nil, err
+	}
+	return prov, nil
 }
 
 func paymentOrderAllowsRegistryFallback(order *dbent.PaymentOrder) bool {
@@ -453,6 +466,9 @@ func paymentOrderFallbackProviderKey(registry *payment.Registry, order *dbent.Pa
 func (s *PaymentService) createProviderFromInstance(ctx context.Context, inst *dbent.PaymentProviderInstance) (payment.Provider, error) {
 	if inst == nil {
 		return nil, fmt.Errorf("payment provider instance is missing")
+	}
+	if err := CheckEasyPayMaintenance(inst.ProviderKey); err != nil {
+		return nil, err
 	}
 
 	cfg, err := s.loadBalancer.GetInstanceConfig(ctx, int64(inst.ID))

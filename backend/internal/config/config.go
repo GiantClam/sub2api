@@ -697,6 +697,7 @@ type ServerConfig struct {
 	IdleTimeout              int       `mapstructure:"idle_timeout"`          // 空闲连接超时（秒）
 	TrustedProxies           []string  `mapstructure:"trusted_proxies"`       // 可信代理列表（CIDR/IP）
 	TrustedProxiesConfigured bool      `mapstructure:"-" json:"-" yaml:"-"`   // 是否显式配置了可信代理列表
+	ClientIPMode             string    `mapstructure:"client_ip_mode"`        // railway: trust only the ingress-sanitized X-Real-IP
 	MaxRequestBodySize       int64     `mapstructure:"max_request_body_size"` // 全局最大请求体限制
 	H2C                      H2CConfig `mapstructure:"h2c"`                   // HTTP/2 Cleartext 配置
 }
@@ -1931,6 +1932,10 @@ func load(allowMissingJWTSecret bool) (*Config, error) {
 	cfg.Security.ResponseHeaders.AdditionalAllowed = normalizeStringSlice(cfg.Security.ResponseHeaders.AdditionalAllowed)
 	cfg.Security.ResponseHeaders.ForceRemove = normalizeStringSlice(cfg.Security.ResponseHeaders.ForceRemove)
 	cfg.Security.CSP.Policy = strings.TrimSpace(cfg.Security.CSP.Policy)
+	cfg.Server.ClientIPMode = strings.ToLower(strings.TrimSpace(cfg.Server.ClientIPMode))
+	if cfg.Server.ClientIPMode != "" && cfg.Server.ClientIPMode != "railway" {
+		return nil, fmt.Errorf("server.client_ip_mode must be empty or railway")
+	}
 	forwardedClientIPHeaders, err := NormalizeForwardedClientIPHeaders(cfg.Security.ForwardedClientIPHeaders)
 	if err != nil {
 		return nil, fmt.Errorf("security.forwarded_client_ip_headers: %w", err)
@@ -2048,6 +2053,7 @@ func setDefaults() {
 	viper.SetDefault("server.mode", "release")
 	viper.SetDefault("server.enable_server_timing", false)
 	viper.SetDefault("server.frontend_url", "")
+	viper.SetDefault("server.client_ip_mode", "")
 	viper.SetDefault("server.read_header_timeout", 10) // 10秒读取请求头
 	viper.SetDefault("server.max_header_bytes", 64*1024)
 	viper.SetDefault("server.idle_timeout", 120) // 120秒空闲超时

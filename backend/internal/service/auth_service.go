@@ -161,8 +161,16 @@ func (s *AuthService) Register(ctx context.Context, email, password string) (str
 
 // RegisterWithVerification 用户注册（支持邮件验证、优惠码、邀请码和邀请返利码），返回token和用户。
 func (s *AuthService) RegisterWithVerification(ctx context.Context, email, password, verifyCode, promoCode, invitationCode, affiliateCode string) (string, *User, error) {
+	policy, err := s.registrationPolicy(ctx)
+	if err != nil {
+		return "", nil, err
+	}
+	return s.registerWithPolicy(ctx, policy, email, password, verifyCode, promoCode, invitationCode, affiliateCode)
+}
+
+func (s *AuthService) registerWithPolicy(ctx context.Context, policy registrationPolicy, email, password, verifyCode, promoCode, invitationCode, affiliateCode string) (string, *User, error) {
 	// 检查是否开放注册（默认关闭：settingService 未配置时不允许注册）
-	if s.settingService == nil || !s.settingService.IsRegistrationEnabled(ctx) {
+	if !policy.enabled {
 		return "", nil, ErrRegDisabled
 	}
 
@@ -191,7 +199,7 @@ func (s *AuthService) RegisterWithVerification(ctx context.Context, email, passw
 	}
 
 	// 检查是否需要邮件验证
-	if s.settingService != nil && s.settingService.IsEmailVerifyEnabled(ctx) {
+	if policy.emailVerificationRequired {
 		// 如果邮件验证已开启但邮件服务未配置，拒绝注册
 		// 这是一个配置错误，不应该允许绕过验证
 		if s.emailService == nil {
@@ -368,6 +376,13 @@ func (s *AuthService) SendVerifyCodeAsync(ctx context.Context, email string, loc
 		return nil, err
 	}
 
+	if s.emailService == nil {
+		return nil, ErrServiceUnavailable
+	}
+	if err := s.emailService.CheckVerificationEmailConfigured(ctx); err != nil {
+		return nil, err
+	}
+
 	// 检查邮件队列服务是否配置
 	if s.emailQueueService == nil {
 		logger.LegacyPrintf("service.auth", "%s", "[Auth] Email queue service not configured")
@@ -397,7 +412,22 @@ func (s *AuthService) SendVerifyCodeAsync(ctx context.Context, email string, loc
 // 当邮箱验证开启且已提交验证码时，说明验证码发送阶段已完成验证码校验，
 // 此处跳过二次校验，避免一次性 token 在注册提交时重复使用导致误报失败。
 func (s *AuthService) VerifyCaptchaForRegister(ctx context.Context, proof CaptchaProof, remoteIP, verifyCode string) error {
-	if s.IsEmailVerifyEnabled(ctx) && strings.TrimSpace(verifyCode) != "" {
+	if s.settingService == nil {
+		return ErrServiceUnavailable
+	}
+	value, err := s.settingService.settingRepo.GetValue(ctx, SettingKeyEmailVerifyEnabled)
+	if err != nil {
+		return ErrServiceUnavailable
+	}
+	emailRequired, err := parseRegistrationEmailVerification(value)
+	if err != nil {
+		return err
+	}
+	return s.verifyCaptchaForRegistration(ctx, emailRequired, proof, remoteIP, verifyCode)
+}
+
+func (s *AuthService) verifyCaptchaForRegistration(ctx context.Context, emailRequired bool, proof CaptchaProof, remoteIP, verifyCode string) error {
+	if emailRequired && strings.TrimSpace(verifyCode) != "" {
 		logger.LegacyPrintf("service.auth", "%s", "[Auth] Email verify flow detected, skip duplicate captcha check on register")
 		return nil
 	}

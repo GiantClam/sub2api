@@ -144,6 +144,7 @@ CREATE TABLE IF NOT EXISTS user_provider_default_grants (
 func TestAuthServiceRegisterDualWritesEmailIdentity(t *testing.T) {
 	svc, _, client := newAuthServiceWithEnt(t, map[string]string{
 		service.SettingKeyRegistrationEnabled: "true",
+		service.SettingKeyEmailVerifyEnabled:  "false",
 	}, nil)
 	ctx := context.Background()
 

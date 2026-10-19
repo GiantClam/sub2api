@@ -16,6 +16,7 @@ import (
 	"net"
 	"net/smtp"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -124,17 +125,62 @@ func (s *EmailService) SetNotificationEmailService(notificationEmailService *Not
 	s.notificationEmailService = notificationEmailService
 }
 
-// SetCloudflareEmailWebhook configures the HTTP transport used for balance-low
-// notifications. Other email events continue to use the configured SMTP server.
+// SetCloudflareEmailWebhook configures balance-low delivery and, when explicitly
+// enabled, verification-code and admin test-email delivery.
 func (s *EmailService) SetCloudflareEmailWebhook(webhook *CloudflareEmailWebhook) {
 	s.cloudflareEmailWebhook = webhook
 }
 
+// IsCloudflareAuthEmailEnabled reports the explicit auth-email transport opt-in.
+// Missing or unrecognized values preserve the existing SMTP behavior.
+func (s *EmailService) IsCloudflareAuthEmailEnabled() bool {
+	return strings.EqualFold(strings.TrimSpace(os.Getenv(cloudflareAuthEmailEnabledEnv)), "true")
+}
+
+// CheckVerificationEmailConfigured can be used before queueing a verification
+// email. Cloudflare auth delivery requires no SMTP settings and never falls back
+// to SMTP when explicitly enabled but incomplete.
+func (s *EmailService) CheckVerificationEmailConfigured(ctx context.Context) error {
+	if s == nil {
+		return ErrEmailNotConfigured
+	}
+	if s.IsCloudflareAuthEmailEnabled() {
+		w := s.cloudflareEmailWebhook
+		if w == nil || strings.TrimSpace(w.URL) == "" || strings.TrimSpace(w.Secret) == "" {
+			return ErrEmailNotConfigured
+		}
+		return nil
+	}
+	_, err := s.GetSMTPConfig(ctx)
+	return err
+}
+
+// SendTestEmail checks delivery of an already-rendered admin test message using
+// the verification transport. The caller retains recipient/admin validation.
+func (s *EmailService) SendTestEmail(ctx context.Context, to, subject, body string) error {
+	return s.SendNotificationEmail(ctx, NotificationEmailEventAuthVerifyCode, "", to, subject, body)
+}
+
 // SendNotificationEmail sends a rendered notification. Balance alerts can be
-// routed through the Cloudflare Email Worker while preserving template and
-// delivery-key handling in NotificationEmailService.
+// routed through the Cloudflare Email Worker; verification messages additionally
+// require the auth opt-in. Other events retain their SMTP transport.
 func (s *EmailService) SendNotificationEmail(ctx context.Context, event, eventID, to, subject, body string) error {
-	if event == NotificationEmailEventBalanceLow && s.cloudflareEmailWebhook != nil {
+	authWebhook := event == NotificationEmailEventAuthVerifyCode && s.IsCloudflareAuthEmailEnabled()
+	if authWebhook {
+		if err := s.CheckVerificationEmailConfigured(ctx); err != nil {
+			return err
+		}
+		if strings.TrimSpace(eventID) == "" {
+			// Auth sends have no persistent notification delivery key. Give every
+			// message its own opaque ID without putting codes or addresses in it.
+			id := make([]byte, 16)
+			if _, err := rand.Read(id); err != nil {
+				return fmt.Errorf("generate auth email event ID: %w", err)
+			}
+			eventID = NotificationEmailEventAuthVerifyCode + ":" + hex.EncodeToString(id)
+		}
+	}
+	if authWebhook || (event == NotificationEmailEventBalanceLow && s.cloudflareEmailWebhook != nil) {
 		return s.cloudflareEmailWebhook.Send(ctx, CloudflareEmailRequest{
 			EventID:   eventID,
 			Recipient: to,
@@ -356,6 +402,9 @@ func (s *EmailService) SendVerifyCode(ctx context.Context, email, siteName strin
 			return ErrVerifyCodeTooFrequent
 		}
 	}
+	if err := s.CheckVerificationEmailConfigured(ctx); err != nil {
+		return err
+	}
 
 	// 生成验证码
 	code, err := s.GenerateVerifyCode()
@@ -399,7 +448,7 @@ func (s *EmailService) SendVerifyCode(ctx context.Context, email, siteName strin
 	body := s.buildVerifyCodeEmailBody(code, siteName)
 
 	// 发送邮件
-	if err := s.SendEmail(ctx, email, subject, body); err != nil {
+	if err := s.SendNotificationEmail(ctx, NotificationEmailEventAuthVerifyCode, "", email, subject, body); err != nil {
 		return fmt.Errorf("send email: %w", err)
 	}
 

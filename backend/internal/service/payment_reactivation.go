@@ -139,6 +139,19 @@ func (s *PaymentService) processPaymentReactivationInitialReminders(ctx context.
 			}
 		}
 	}
+
+	campaignIDs, err := listPaymentReactivationInitialCampaigns(ctx, s.entClient, now)
+	if err != nil {
+		return err
+	}
+	for _, campaignID := range campaignIDs {
+		if err := s.sendPaymentReactivationInitialEmail(ctx, campaignID, now); err != nil {
+			slog.Warn("first recharge reminder email failed", "campaign_id", campaignID, "error", err)
+			if firstErr == nil {
+				firstErr = err
+			}
+		}
+	}
 	return firstErr
 }
 
@@ -576,15 +589,15 @@ func paymentReactivationRetryDelay(attempt int) time.Duration {
 	return delay
 }
 
-func insertPaymentReactivationCampaign(ctx context.Context, client *dbent.Client, userID, orderID int64, _ time.Time) (int64, bool, error) {
+func insertPaymentReactivationCampaign(ctx context.Context, client *dbent.Client, userID, orderID int64, now time.Time) (int64, bool, error) {
 	query := `
 INSERT INTO payment_reactivation_campaigns
     (user_id, source_order_id, created_at, initial_email_next_attempt_at, followup_email_next_attempt_at, updated_at)
-VALUES ($1, $2, NOW(), NOW(), NOW(), NOW())
+VALUES ($1, $2, $3, $3, $3, $3)
 ON CONFLICT (user_id) DO NOTHING
 RETURNING campaign_id`
 	var rows entsql.Rows
-	if err := client.Driver().Query(ctx, query, []any{userID, orderID}, &rows); err != nil {
+	if err := client.Driver().Query(ctx, query, []any{userID, orderID, now}, &rows); err != nil {
 		return 0, false, fmt.Errorf("insert first recharge campaign: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
@@ -677,6 +690,14 @@ SELECT campaign_id FROM payment_reactivation_campaigns
 WHERE followup_email_sent_at IS NULL AND reward_order_id IS NULL
   AND created_at <= $1 AND followup_email_next_attempt_at <= $2
 ORDER BY campaign_id LIMIT $3`, now.Add(-paymentReactivationFollowupDelay), now, paymentReactivationBatchSize)
+}
+
+func listPaymentReactivationInitialCampaigns(ctx context.Context, client *dbent.Client, now time.Time) ([]int64, error) {
+	return listPaymentReactivationCampaignIDs(ctx, client, `
+SELECT campaign_id FROM payment_reactivation_campaigns
+WHERE initial_email_sent_at IS NULL AND reward_order_id IS NULL
+  AND initial_email_next_attempt_at <= $1
+ORDER BY campaign_id LIMIT $2`, now, paymentReactivationBatchSize)
 }
 
 func (s *PaymentService) listPaymentReactivationRewardCampaigns(ctx context.Context) ([]int64, error) {

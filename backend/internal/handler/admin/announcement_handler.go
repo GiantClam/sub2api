@@ -236,6 +236,23 @@ func (h *AnnouncementHandler) Delete(c *gin.Context) {
 	response.Success(c, gin.H{"message": "Announcement deleted successfully"})
 }
 
+// Notify queues an existing active announcement for all eligible users.
+// POST /api/v1/admin/announcements/:id/notify
+func (h *AnnouncementHandler) Notify(c *gin.Context) {
+	announcementID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || announcementID <= 0 {
+		response.BadRequest(c, "Invalid announcement ID")
+		return
+	}
+
+	queued, err := h.announcementService.QueuePublishedNotification(c.Request.Context(), announcementID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, gin.H{"queued": queued})
+}
+
 // ListReadStatus handles listing users read status for an announcement
 // GET /api/v1/admin/announcements/:id/read-status
 func (h *AnnouncementHandler) ListReadStatus(c *gin.Context) {

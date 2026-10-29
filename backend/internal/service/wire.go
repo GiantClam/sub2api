@@ -61,6 +61,20 @@ func ProvideEmailService(settingRepo SettingRepository, cache EmailCache) *Email
 	return svc
 }
 
+func ProvideAnnouncementService(
+	announcementRepo AnnouncementRepository,
+	readRepo AnnouncementReadRepository,
+	userRepo UserRepository,
+	userSubRepo UserSubscriptionRepository,
+	notificationEmailService *NotificationEmailService,
+	emailQueueService *EmailQueueService,
+) *AnnouncementService {
+	svc := NewAnnouncementService(announcementRepo, readRepo, userRepo, userSubRepo)
+	svc.SetNotificationEmailService(notificationEmailService)
+	svc.SetEmailQueueService(emailQueueService)
+	return svc
+}
+
 // ProvideAuthService wires the optional captcha providers into AuthService while
 // keeping NewAuthService's public constructor compatible with existing tests.
 func ProvideAuthService(
@@ -875,7 +889,7 @@ var ProviderSet = wire.NewSet(
 	ProvidePricingService,
 	NewBillingService,
 	ProvideBillingCacheService,
-	NewAnnouncementService,
+	ProvideAnnouncementService,
 	NewAdminService,
 	NewGatewayService,
 	NewOpenAIGatewayService,

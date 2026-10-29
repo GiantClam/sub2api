@@ -926,11 +926,11 @@ async function createOrder(orderAmount: number, orderType: OrderType, planId?: n
       return
     }
     if (decision.kind === 'stripe_route') {
-      window.location.href = decision.paymentState.payUrl
+      await router.push(decision.paymentState.payUrl)
       return
     }
     if (decision.kind === 'airwallex_route') {
-      window.location.href = decision.paymentState.payUrl
+      await router.push(decision.paymentState.payUrl)
       return
     }
     if (decision.kind === 'wechat_jsapi' && decision.jsapi) {

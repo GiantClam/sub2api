@@ -146,6 +146,7 @@ func TestNotificationEmailAdditionalEventsAreListedAndPreviewable(t *testing.T) 
 		{NotificationEmailEventCyberPolicyNotice, "upstream_message"},
 		{NotificationEmailEventOpsAlert, "rule_name"},
 		{NotificationEmailEventOpsScheduledReport, "report_html"},
+		{NotificationEmailEventAnnouncementPublished, "announcement_content_en"},
 	}
 
 	for _, check := range checks {
@@ -159,6 +160,38 @@ func TestNotificationEmailAdditionalEventsAreListedAndPreviewable(t *testing.T) 
 		require.NotEmpty(t, preview.Subject)
 		require.NotEmpty(t, preview.HTML)
 	}
+}
+
+func TestAnnouncementNotificationEmailIsBilingualAndDeduplicated(t *testing.T) {
+	ctx := context.Background()
+	repo := newNotificationEmailMemorySettingRepo()
+	smtpServer := startNotificationEmailTestSMTPServer(t)
+	require.NoError(t, repo.SetMultiple(ctx, smtpServer.settings()))
+
+	emailSvc := NewEmailService(repo, nil)
+	svc := NewNotificationEmailService(repo, emailSvc)
+	input := NotificationEmailSendInput{
+		Event:          NotificationEmailEventAnnouncementPublished,
+		RecipientEmail: "active@example.com",
+		RecipientName:  "Active",
+		SourceType:     "announcement",
+		SourceID:       "42",
+		Variables: map[string]string{
+			"announcement_title_zh":   "中文公告",
+			"announcement_title_en":   "English announcement",
+			"announcement_content_zh": "中文正文",
+			"announcement_content_en": "English body",
+		},
+	}
+
+	require.NoError(t, svc.Send(ctx, input))
+	require.NoError(t, svc.Send(ctx, input))
+	require.Equal(t, int64(1), smtpServer.messageCount())
+	body := smtpServer.lastMessageBody(t)
+	require.Contains(t, body, "中文公告")
+	require.Contains(t, body, "English announcement")
+	require.Contains(t, body, "中文正文")
+	require.Contains(t, body, "English body")
 }
 
 func TestCyberPolicyNoticeTemplateWrapsLongUpstreamMessages(t *testing.T) {
@@ -356,6 +389,20 @@ func TestNotificationEmailUnsubscribeOnlyAllowsOptionalEvents(t *testing.T) {
 	_, err = svc.Unsubscribe(ctx, authToken)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "transactional")
+}
+
+func TestPaymentReactivationUnsubscribeSuppressesBothStages(t *testing.T) {
+	ctx := context.Background()
+	svc := NewNotificationEmailService(newNotificationEmailMemorySettingRepo(), nil)
+
+	token, err := svc.createUnsubscribeToken(ctx, "user@example.com", NotificationEmailEventPaymentReactivation)
+	require.NoError(t, err)
+	_, err = svc.Unsubscribe(ctx, token)
+	require.NoError(t, err)
+
+	unsubscribed, err := svc.IsUnsubscribed(ctx, "user@example.com", NotificationEmailEventPaymentReactivationFollowup)
+	require.NoError(t, err)
+	require.True(t, unsubscribed)
 }
 
 func TestNotificationEmailLocaleMemoryNormalizesAcceptLanguage(t *testing.T) {

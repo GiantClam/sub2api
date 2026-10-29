@@ -16,31 +16,60 @@ var ErrEasyPayMaintenance = infraerrors.ServiceUnavailable("EASYPAY_MAINTENANCE"
 // CheckEasyPayMaintenance is independent of instance Enabled: historical orders
 // can still resolve disabled provider instances through their persisted snapshots.
 func CheckEasyPayMaintenance(providerKey string) error {
+	if !strings.EqualFold(strings.TrimSpace(providerKey), payment.TypeEasyPay) {
+		return nil
+	}
 	enabled, _ := strconv.ParseBool(strings.TrimSpace(os.Getenv("EASYPAY_MAINTENANCE_ENABLED")))
-	if enabled && strings.EqualFold(strings.TrimSpace(providerKey), payment.TypeEasyPay) {
+	_, validCutoff := easyPayReconciliationCutoff()
+	if enabled || !validCutoff {
+		return ErrEasyPayMaintenance
+	}
+	return nil
+}
+
+func easyPayReconciliationCutoff() (int64, bool) {
+	raw := strings.TrimSpace(os.Getenv("EASYPAY_RECONCILIATION_MAX_ORDER_ID"))
+	if raw == "" {
+		return 0, true
+	}
+	maxID, err := strconv.ParseInt(raw, 10, 64)
+	return maxID, err == nil && maxID > 0
+}
+
+// Keep pre-recovery orders frozen independently of the emergency global pause.
+// IDs are assigned by the database; new orders cannot reuse a quarantined ID.
+func checkEasyPayOrderMaintenance(providerKey string, orderID int64) error {
+	if err := CheckEasyPayMaintenance(providerKey); err != nil {
+		return err
+	}
+	if !strings.EqualFold(strings.TrimSpace(providerKey), payment.TypeEasyPay) {
+		return nil
+	}
+	maxID, _ := easyPayReconciliationCutoff()
+	if maxID > 0 && orderID <= maxID {
 		return ErrEasyPayMaintenance
 	}
 	return nil
 }
 
 func (s *PaymentService) checkOrderEasyPayMaintenance(ctx context.Context, order *dbent.PaymentOrder) error {
-	if CheckEasyPayMaintenance(payment.TypeEasyPay) == nil || order == nil {
+	if order == nil || checkEasyPayOrderMaintenance(payment.TypeEasyPay, order.ID) == nil {
 		return nil
 	}
 	if snapshot := psOrderProviderSnapshot(order); snapshot != nil && snapshot.ProviderKey != "" {
-		return CheckEasyPayMaintenance(snapshot.ProviderKey)
+		return checkEasyPayOrderMaintenance(snapshot.ProviderKey, order.ID)
 	}
 	if key := strings.TrimSpace(psStringValue(order.ProviderKey)); key != "" {
-		return CheckEasyPayMaintenance(key)
+		return checkEasyPayOrderMaintenance(key, order.ID)
 	}
 	inst, err := s.getOrderProviderInstance(ctx, order)
 	if err != nil {
 		return err
 	}
 	if inst != nil {
-		return CheckEasyPayMaintenance(inst.ProviderKey)
+		return checkEasyPayOrderMaintenance(inst.ProviderKey, order.ID)
 	}
-	if err := CheckEasyPayMaintenance(paymentOrderFallbackProviderKey(s.registry, order)); err != nil {
+	if err := checkEasyPayOrderMaintenance(paymentOrderFallbackProviderKey(s.registry, order), order.ID); err != nil {
 		return err
 	}
 	// Without a historical binding, alipay/wxpay and custom methods cannot

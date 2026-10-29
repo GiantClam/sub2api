@@ -13,6 +13,27 @@ type announcementRepoStub struct {
 	item *Announcement
 }
 
+type announcementRecipientRepoStub struct {
+	UserRepository
+	users       []User
+	lastFilters UserListFilters
+}
+
+func (s *announcementRecipientRepoStub) ListWithFilters(_ context.Context, _ pagination.PaginationParams, filters UserListFilters) ([]User, *pagination.PaginationResult, error) {
+	s.lastFilters = filters
+	users := make([]User, 0, len(s.users))
+	for _, user := range s.users {
+		if filters.Status != "" && user.Status != filters.Status {
+			continue
+		}
+		if filters.Role != "" && user.Role != filters.Role {
+			continue
+		}
+		users = append(users, user)
+	}
+	return users, &pagination.PaginationResult{Total: int64(len(users))}, nil
+}
+
 func (s *announcementRepoStub) Create(_ context.Context, a *Announcement) error {
 	s.item = a
 	return nil
@@ -144,4 +165,53 @@ func TestAnnouncementServiceUpdateRejectsEqualStartEndTimes(t *testing.T) {
 		EndsAt:   &endsAt,
 	})
 	require.ErrorIs(t, err, ErrAnnouncementInvalidSchedule)
+}
+
+func TestAnnouncementServiceQueuesBilingualNotificationForActiveUsers(t *testing.T) {
+	repo := &announcementRepoStub{item: &Announcement{
+		ID:         42,
+		Title:      "Fallback title",
+		Content:    "Fallback content",
+		TitleZh:    "中文公告",
+		TitleEn:    "English announcement",
+		ContentZh:  "中文正文",
+		ContentEn:  "English body",
+		Status:     AnnouncementStatusActive,
+		NotifyMode: AnnouncementNotifyModePopup,
+	}}
+	users := &announcementRecipientRepoStub{users: []User{
+		{ID: 1, Email: "active@example.com", Username: "Active", Role: RoleUser, Status: StatusActive},
+		{ID: 2, Email: "disabled@example.com", Username: "Disabled", Role: RoleUser, Status: StatusDisabled},
+		{ID: 3, Email: "admin@example.com", Username: "Admin", Role: RoleAdmin, Status: StatusActive},
+	}}
+	queue := &EmailQueueService{taskChan: make(chan EmailTask, 1)}
+	svc := NewAnnouncementService(repo, nil, users, nil)
+	svc.SetNotificationEmailService(NewNotificationEmailService(newNotificationEmailMemorySettingRepo(), nil))
+	svc.SetEmailQueueService(queue)
+
+	queued, err := svc.QueuePublishedNotification(context.Background(), repo.item.ID)
+	require.NoError(t, err)
+	require.Equal(t, 1, queued)
+	require.Equal(t, StatusActive, users.lastFilters.Status)
+	require.Equal(t, RoleUser, users.lastFilters.Role)
+
+	task := <-queue.taskChan
+	require.Equal(t, TaskTypeNotificationBatch, task.TaskType)
+	require.Len(t, task.Notifications, 1)
+	require.Equal(t, "active@example.com", task.Notifications[0].RecipientEmail)
+	require.Equal(t, "中文公告", task.Notifications[0].Variables["announcement_title_zh"])
+	require.Equal(t, "English body", task.Notifications[0].Variables["announcement_content_en"])
+}
+
+func TestAnnouncementServiceQueuePublishedNotificationRejectsBackpressure(t *testing.T) {
+	repo := &announcementRepoStub{item: &Announcement{ID: 7, Title: "公告", Content: "正文", Status: AnnouncementStatusActive}}
+	users := &announcementRecipientRepoStub{users: []User{{ID: 1, Email: "active@example.com", Role: RoleUser, Status: StatusActive}}}
+	queue := &EmailQueueService{taskChan: make(chan EmailTask)}
+	svc := NewAnnouncementService(repo, nil, users, nil)
+	svc.SetNotificationEmailService(NewNotificationEmailService(newNotificationEmailMemorySettingRepo(), nil))
+	svc.SetEmailQueueService(queue)
+
+	_, err := svc.QueuePublishedNotification(context.Background(), repo.item.ID)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "email queue is full")
 }

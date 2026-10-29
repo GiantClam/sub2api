@@ -446,6 +446,7 @@ func registerAnnouncementRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		announcements.GET("/:id", h.Admin.Announcement.GetByID)
 		announcements.PUT("/:id", h.Admin.Announcement.Update)
 		announcements.DELETE("/:id", h.Admin.Announcement.Delete)
+		announcements.POST("/:id/notify", h.Admin.Announcement.Notify)
 		announcements.GET("/:id/read-status", h.Admin.Announcement.ListReadStatus)
 	}
 }

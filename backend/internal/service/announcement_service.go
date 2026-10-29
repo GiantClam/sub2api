@@ -3,7 +3,9 @@ package service
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -12,10 +14,12 @@ import (
 )
 
 type AnnouncementService struct {
-	announcementRepo AnnouncementRepository
-	readRepo         AnnouncementReadRepository
-	userRepo         UserRepository
-	userSubRepo      UserSubscriptionRepository
+	announcementRepo         AnnouncementRepository
+	readRepo                 AnnouncementReadRepository
+	userRepo                 UserRepository
+	userSubRepo              UserSubscriptionRepository
+	notificationEmailService *NotificationEmailService
+	emailQueueService        *EmailQueueService
 }
 
 func NewAnnouncementService(
@@ -30,6 +34,14 @@ func NewAnnouncementService(
 		userRepo:         userRepo,
 		userSubRepo:      userSubRepo,
 	}
+}
+
+func (s *AnnouncementService) SetNotificationEmailService(notificationEmailService *NotificationEmailService) {
+	s.notificationEmailService = notificationEmailService
+}
+
+func (s *AnnouncementService) SetEmailQueueService(emailQueueService *EmailQueueService) {
+	s.emailQueueService = emailQueueService
 }
 
 type CreateAnnouncementInput struct {
@@ -149,6 +161,9 @@ func (s *AnnouncementService) Create(ctx context.Context, input *CreateAnnouncem
 	if err := s.announcementRepo.Create(ctx, a); err != nil {
 		return nil, fmt.Errorf("create announcement: %w", err)
 	}
+	if a.IsActiveAt(time.Now()) {
+		s.enqueuePublishedNotification(a.ID)
+	}
 	return a, nil
 }
 
@@ -166,6 +181,7 @@ func (s *AnnouncementService) Update(ctx context.Context, id int64, input *Updat
 	if err != nil {
 		return nil, err
 	}
+	wasActive := a.IsActiveAt(time.Now())
 
 	if input.Title != nil {
 		title := strings.TrimSpace(*input.Title)
@@ -245,7 +261,142 @@ func (s *AnnouncementService) Update(ctx context.Context, id int64, input *Updat
 	if err := s.announcementRepo.Update(ctx, a); err != nil {
 		return nil, fmt.Errorf("update announcement: %w", err)
 	}
+	if !wasActive && a.IsActiveAt(time.Now()) {
+		s.enqueuePublishedNotification(a.ID)
+	}
 	return a, nil
+}
+
+// QueuePublishedNotification queues one announcement for all eligible active
+// users. Delivery is deduplicated by the notification email service using the
+// announcement ID and recipient address.
+func (s *AnnouncementService) QueuePublishedNotification(ctx context.Context, id int64) (int, error) {
+	if s == nil || s.notificationEmailService == nil || s.emailQueueService == nil {
+		return 0, ErrAnnouncementEmailNotConfigured
+	}
+	a, err := s.announcementRepo.GetByID(ctx, id)
+	if err != nil {
+		return 0, err
+	}
+	if !a.IsActiveAt(time.Now()) {
+		return 0, ErrAnnouncementNotFound
+	}
+
+	users, err := s.listAnnouncementRecipients(ctx, a)
+	if err != nil {
+		return 0, err
+	}
+	inputs := make([]NotificationEmailSendInput, 0, len(users))
+	for _, user := range users {
+		inputs = append(inputs, NotificationEmailSendInput{
+			Event:          NotificationEmailEventAnnouncementPublished,
+			RecipientEmail: strings.TrimSpace(user.Email),
+			RecipientName:  announcementRecipientName(user),
+			UserID:         user.ID,
+			SourceType:     "announcement",
+			SourceID:       strconv.FormatInt(a.ID, 10),
+			Variables: map[string]string{
+				"announcement_title_zh":   announcementTitle(a.TitleZh, a.Title),
+				"announcement_title_en":   announcementTitle(a.TitleEn, a.Title),
+				"announcement_content_zh": announcementContent(a.ContentZh, a.Content),
+				"announcement_content_en": announcementContent(a.ContentEn, a.Content),
+			},
+		})
+	}
+	if err := s.emailQueueService.EnqueueNotifications(inputs); err != nil {
+		return 0, err
+	}
+	return len(inputs), nil
+}
+
+func (s *AnnouncementService) enqueuePublishedNotification(id int64) {
+	if s == nil || s.notificationEmailService == nil || s.emailQueueService == nil {
+		return
+	}
+	go func() {
+		queued, err := s.QueuePublishedNotification(context.Background(), id)
+		if err != nil {
+			slog.Error("announcement email queue failed", "announcement_id", id, "error", err)
+			return
+		}
+		slog.Info("announcement email queued", "announcement_id", id, "recipients", queued)
+	}()
+}
+
+func (s *AnnouncementService) listAnnouncementRecipients(ctx context.Context, a *Announcement) ([]User, error) {
+	if len(a.Targeting.UserIDs) > 0 {
+		users := make([]User, 0, len(a.Targeting.UserIDs))
+		for _, userID := range a.Targeting.UserIDs {
+			user, err := s.userRepo.GetByID(ctx, userID)
+			if err != nil {
+				return nil, fmt.Errorf("get targeted announcement recipient: %w", err)
+			}
+			if user.Status != StatusActive || user.Role != RoleUser || strings.TrimSpace(user.Email) == "" {
+				continue
+			}
+			activeGroupIDs := activeSubscriptionGroupIDs(user.Subscriptions)
+			if a.Targeting.MatchesForUser(user.ID, user.Balance, activeGroupIDs) {
+				users = append(users, *user)
+			}
+		}
+		return users, nil
+	}
+
+	includeSubscriptions := len(a.Targeting.AnyOf) > 0
+	users := make([]User, 0)
+	for page := 1; ; page++ {
+		pageUsers, pageResult, err := s.userRepo.ListWithFilters(ctx, pagination.PaginationParams{
+			Page: page, PageSize: 1000, SortBy: "id", SortOrder: "asc",
+		}, UserListFilters{
+			Status:               StatusActive,
+			Role:                 RoleUser,
+			IncludeSubscriptions: &includeSubscriptions,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("list announcement recipients: %w", err)
+		}
+		for _, user := range pageUsers {
+			if strings.TrimSpace(user.Email) == "" || !a.Targeting.MatchesForUser(user.ID, user.Balance, activeSubscriptionGroupIDs(user.Subscriptions)) {
+				continue
+			}
+			users = append(users, user)
+		}
+		if len(pageUsers) < 1000 || pageResult == nil || int64(page*1000) >= pageResult.Total {
+			break
+		}
+	}
+	return users, nil
+}
+
+func activeSubscriptionGroupIDs(subscriptions []UserSubscription) map[int64]struct{} {
+	ids := make(map[int64]struct{}, len(subscriptions))
+	for _, subscription := range subscriptions {
+		if subscription.IsActive() {
+			ids[subscription.GroupID] = struct{}{}
+		}
+	}
+	return ids
+}
+
+func announcementRecipientName(user User) string {
+	if name := strings.TrimSpace(user.Username); name != "" {
+		return name
+	}
+	return emailRecipientName(user.Email)
+}
+
+func announcementTitle(value, fallback string) string {
+	if value = strings.TrimSpace(value); value != "" {
+		return value
+	}
+	return strings.TrimSpace(fallback)
+}
+
+func announcementContent(value, fallback string) string {
+	if value = strings.TrimSpace(value); value != "" {
+		return value
+	}
+	return strings.TrimSpace(fallback)
 }
 
 func (s *AnnouncementService) Delete(ctx context.Context, id int64) error {
@@ -291,7 +442,7 @@ func (s *AnnouncementService) ListForUser(ctx context.Context, userID int64, unr
 		if !a.IsActiveAt(now) {
 			continue
 		}
-		if !a.Targeting.Matches(user.Balance, activeGroupIDs) {
+		if !a.Targeting.MatchesForUser(userID, user.Balance, activeGroupIDs) {
 			continue
 		}
 		visible = append(visible, a)
@@ -363,7 +514,7 @@ func (s *AnnouncementService) MarkRead(ctx context.Context, userID, announcement
 		activeGroupIDs[activeSubs[i].GroupID] = struct{}{}
 	}
 
-	if !a.Targeting.Matches(user.Balance, activeGroupIDs) {
+	if !a.Targeting.MatchesForUser(userID, user.Balance, activeGroupIDs) {
 		return ErrAnnouncementNotFound
 	}
 
@@ -427,7 +578,7 @@ func (s *AnnouncementService) ListUserReadStatus(
 			Email:    u.Email,
 			Username: u.Username,
 			Balance:  u.Balance,
-			Eligible: domain.AnnouncementTargeting(ann.Targeting).Matches(u.Balance, activeGroupIDs),
+			Eligible: domain.AnnouncementTargeting(ann.Targeting).MatchesForUser(u.ID, u.Balance, activeGroupIDs),
 			ReadAt:   ptr,
 		})
 	}

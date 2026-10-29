@@ -106,6 +106,12 @@ func (s *PaymentOrderExpiryService) runOnce() {
 		slog.Info("[PaymentOrderExpiry] reconciled paid orders", "count", recovered)
 	}
 
+	reminderCtx, reminderCancel := context.WithTimeout(context.Background(), expiryCheckTimeout)
+	if err := s.paymentSvc.ProcessPaymentReactivationReminders(reminderCtx, time.Now()); err != nil {
+		slog.Warn("[PaymentOrderExpiry] failed to process first recharge reminders", "error", err)
+	}
+	reminderCancel()
+
 	expireCtx, cancel := context.WithTimeout(context.Background(), expiryCheckTimeout)
 	defer cancel()
 	expired, err := s.paymentSvc.ExpireTimedOutOrders(expireCtx)

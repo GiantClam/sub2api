@@ -33,6 +33,9 @@ const (
 	NotificationEmailEventCyberPolicyNotice           = "content_moderation.cyber_policy_notice"
 	NotificationEmailEventOpsAlert                    = "ops.alert"
 	NotificationEmailEventOpsScheduledReport          = "ops.scheduled_report"
+	NotificationEmailEventAnnouncementPublished       = "announcement.published"
+	NotificationEmailEventPaymentReactivation         = "payment.first_recharge_reminder"
+	NotificationEmailEventPaymentReactivationFollowup = "payment.first_recharge_followup"
 
 	notificationEmailTemplateKeyPrefix    = "notification_email_template:"
 	notificationEmailPreferenceKeyPrefix  = "notification_email_preference:"
@@ -469,19 +472,33 @@ func (s *NotificationEmailService) IsUnsubscribed(ctx context.Context, email, ev
 	if !info.Optional {
 		return false, nil
 	}
-	for _, key := range []string{notificationEmailPreferenceKey(normalizedEvent, email), legacyNotificationEmailPreferenceKey(normalizedEvent, email)} {
-		if strings.TrimSpace(key) == "" {
-			continue
-		}
-		value, err := s.settingRepo.GetValue(ctx, key)
-		if err == nil {
-			return strings.EqualFold(strings.TrimSpace(value), "unsubscribed"), nil
-		}
-		if !errors.Is(err, ErrSettingNotFound) {
-			return false, err
+	for _, preferenceEvent := range notificationEmailPreferenceEvents(normalizedEvent) {
+		for _, key := range []string{notificationEmailPreferenceKey(preferenceEvent, email), legacyNotificationEmailPreferenceKey(preferenceEvent, email)} {
+			if strings.TrimSpace(key) == "" {
+				continue
+			}
+			value, err := s.settingRepo.GetValue(ctx, key)
+			if err == nil {
+				if strings.EqualFold(strings.TrimSpace(value), "unsubscribed") {
+					return true, nil
+				}
+				continue
+			}
+			if !errors.Is(err, ErrSettingNotFound) {
+				return false, err
+			}
 		}
 	}
 	return false, nil
+}
+
+func notificationEmailPreferenceEvents(event string) []string {
+	switch event {
+	case NotificationEmailEventPaymentReactivation, NotificationEmailEventPaymentReactivationFollowup:
+		return []string{NotificationEmailEventPaymentReactivation, NotificationEmailEventPaymentReactivationFollowup}
+	default:
+		return []string{event}
+	}
 }
 
 func (s *NotificationEmailService) Unsubscribe(ctx context.Context, token string) (NotificationEmailUnsubscribeResult, error) {
@@ -911,6 +928,7 @@ func notificationEmailSampleVariables(locale string) map[string]string {
 			"current_balance":     "12.34",
 			"threshold":           "20.00",
 			"recharge_url":        "https://example.com/recharge",
+			"reward_cap":          "5.00 USD",
 			"recharge_amount":     "50.00",
 			"order_id":            "1024",
 			"unsubscribe_url":     "https://example.com/unsubscribe",
@@ -959,6 +977,7 @@ func notificationEmailSampleVariables(locale string) map[string]string {
 		"current_balance":     "12.34",
 		"threshold":           "20.00",
 		"recharge_url":        "https://example.com/recharge",
+		"reward_cap":          "5.00 USD",
 		"recharge_amount":     "50.00",
 		"order_id":            "1024",
 		"unsubscribe_url":     "https://example.com/unsubscribe",
@@ -1034,6 +1053,9 @@ var notificationEmailEventOrder = []string{
 	NotificationEmailEventCyberPolicyNotice,
 	NotificationEmailEventOpsAlert,
 	NotificationEmailEventOpsScheduledReport,
+	NotificationEmailEventAnnouncementPublished,
+	NotificationEmailEventPaymentReactivation,
+	NotificationEmailEventPaymentReactivationFollowup,
 }
 
 var notificationEmailEventDefinitions = map[string]NotificationEmailEventInfo{
@@ -1151,6 +1173,31 @@ var notificationEmailEventDefinitions = map[string]NotificationEmailEventInfo{
 			),
 			append(append([]string{}, notificationEmailOpsSummaryPlaceholders...), "report_detail_display", "report_html")...,
 		),
+	},
+	NotificationEmailEventAnnouncementPublished: {
+		Event:       NotificationEmailEventAnnouncementPublished,
+		Label:       "Announcement published",
+		Description: "Sent to active users when an announcement is published.",
+		Category:    "announcement",
+		Optional:    false,
+		Placeholders: append(append([]string{}, notificationEmailCommonPlaceholders...),
+			"announcement_title_zh", "announcement_title_en", "announcement_content_zh", "announcement_content_en"),
+	},
+	NotificationEmailEventPaymentReactivation: {
+		Event:        NotificationEmailEventPaymentReactivation,
+		Label:        "First recharge reminder",
+		Description:  "Sent when a first-time user leaves an eligible balance recharge unpaid.",
+		Category:     "marketing",
+		Optional:     true,
+		Placeholders: append(append([]string{}, notificationEmailCommonPlaceholders...), "recharge_url", "reward_cap", "unsubscribe_url"),
+	},
+	NotificationEmailEventPaymentReactivationFollowup: {
+		Event:        NotificationEmailEventPaymentReactivationFollowup,
+		Label:        "First recharge follow-up",
+		Description:  "One follow-up email for an unpaid first balance recharge.",
+		Category:     "marketing",
+		Optional:     true,
+		Placeholders: append(append([]string{}, notificationEmailCommonPlaceholders...), "recharge_url", "reward_cap", "unsubscribe_url"),
 	},
 }
 
@@ -1434,6 +1481,68 @@ var notificationEmailOfficialTemplates = map[string]map[string]notificationEmail
 		notificationEmailLocaleChinese: {
 			Subject: "[运维报表] {{report_name}}",
 			HTML:    notificationEmailOpsScheduledReportTemplate(notificationEmailLocaleChinese),
+		},
+	},
+	NotificationEmailEventAnnouncementPublished: {
+		notificationEmailDefaultLocale: {
+			Subject: "[{{site_name}}] Announcement / 公告: {{announcement_title_en}}",
+			HTML: notificationEmailCard("#0f766e", "Platform announcement / 平台公告", `
+<p>Hello {{recipient_name}}，您好：</p>
+<h2>{{announcement_title_en}}</h2>
+<p style="white-space: pre-wrap;">{{announcement_content_en}}</p>
+<hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 24px 0;">
+<h2>{{announcement_title_zh}}</h2>
+<p style="white-space: pre-wrap;">{{announcement_content_zh}}</p>`),
+		},
+		notificationEmailLocaleChinese: {
+			Subject: "[{{site_name}}] 公告 / Announcement: {{announcement_title_zh}}",
+			HTML: notificationEmailCard("#0f766e", "平台公告 / Platform announcement", `
+<p>{{recipient_name}}，您好：</p>
+<h2>{{announcement_title_zh}}</h2>
+<p style="white-space: pre-wrap;">{{announcement_content_zh}}</p>
+<hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 24px 0;">
+<h2>{{announcement_title_en}}</h2>
+<p style="white-space: pre-wrap;">{{announcement_content_en}}</p>`),
+		},
+	},
+	NotificationEmailEventPaymentReactivation: {
+		notificationEmailDefaultLocale: {
+			Subject: "[{{site_name}}] Your first recharge earns 10% extra",
+			HTML: notificationEmailCard("#0f766e", "Complete your first recharge", `
+<p>Hello {{recipient_name}},</p>
+<p>Your first paid balance recharge earns <strong>10% extra wallet credit</strong>, up to <strong>{{reward_cap}}</strong>.</p>
+<p><a class="button" href="{{recharge_url}}">Continue to recharge</a></p>
+<p>If the button does not work, open {{recharge_url}} in your browser.</p>
+<p class="muted"><a href="{{unsubscribe_url}}">Unsubscribe from promotional recharge emails</a></p>`),
+		},
+		notificationEmailLocaleChinese: {
+			Subject: "[{{site_name}}] 首次充值额外赠送 10% 余额",
+			HTML: notificationEmailCard("#0f766e", "完成首次充值，额外获赠余额", `
+<p>{{recipient_name}}，您好：</p>
+<p>完成首次成功充值，可按实际到账余额额外获赠 <strong>10%</strong>，最高 <strong>{{reward_cap}}</strong>。</p>
+<p><a class="button" href="{{recharge_url}}">前往充值</a></p>
+<p>如果按钮无法打开，请在浏览器访问 {{recharge_url}}。</p>
+<p class="muted"><a href="{{unsubscribe_url}}">退订充值优惠邮件</a></p>`),
+		},
+	},
+	NotificationEmailEventPaymentReactivationFollowup: {
+		notificationEmailDefaultLocale: {
+			Subject: "[{{site_name}}] Your first recharge bonus is still available",
+			HTML: notificationEmailCard("#0f766e", "Your first recharge bonus is still available", `
+<p>Hello {{recipient_name}},</p>
+<p>Your first paid balance recharge can still earn <strong>10% extra wallet credit</strong>, up to <strong>{{reward_cap}}</strong>.</p>
+<p>Your earlier payment link may have expired. Start a new recharge from your account to use the offer.</p>
+<p><a class="button" href="{{recharge_url}}">Start a recharge</a></p>
+<p class="muted"><a href="{{unsubscribe_url}}">Unsubscribe from promotional recharge emails</a></p>`),
+		},
+		notificationEmailLocaleChinese: {
+			Subject: "[{{site_name}}] 首次充值赠送余额仍可领取",
+			HTML: notificationEmailCard("#0f766e", "首次充值优惠仍可领取", `
+<p>{{recipient_name}}，您好：</p>
+<p>完成首次成功充值，仍可按实际到账余额额外获赠 <strong>10%</strong>，最高 <strong>{{reward_cap}}</strong>。</p>
+<p>之前的支付链接可能已过期，请登录账户重新创建充值订单。</p>
+<p><a class="button" href="{{recharge_url}}">重新充值</a></p>
+<p class="muted"><a href="{{unsubscribe_url}}">退订充值优惠邮件</a></p>`),
 		},
 	},
 }

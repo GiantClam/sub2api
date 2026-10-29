@@ -258,6 +258,13 @@ func (s *PaymentService) ExecuteBalanceFulfillment(ctx context.Context, oid int6
 		s.markFailed(ctx, oid, lease, err)
 		return err
 	}
+	// The base recharge must be completed before the campaign reward is
+	// settled. Reward settlement is retried by the periodic maintenance job so
+	// a transient email/redeem/database failure never makes the paid recharge
+	// fail or causes the user to receive the bonus before the base credit.
+	if err := s.applyPaymentReactivationBonus(ctx, o); err != nil {
+		slog.Warn("first recharge reward settlement deferred", "orderID", oid, "error", err)
+	}
 	return nil
 }
 

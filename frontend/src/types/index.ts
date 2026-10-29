@@ -354,6 +354,7 @@ export interface AnnouncementConditionGroup {
 
 export interface AnnouncementTargeting {
   any_of?: AnnouncementConditionGroup[]
+  user_ids?: number[]
 }
 
 export interface Announcement {

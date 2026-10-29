@@ -227,6 +227,34 @@ func TestCloudflareAuthEmailDoesNotRouteOtherEvents(t *testing.T) {
 	require.False(t, strings.Contains(err.Error(), "cloudflare"))
 }
 
+func TestCloudflareEmailWebhookRoutesPublishedAnnouncementsWithoutSMTP(t *testing.T) {
+	deliveries := make(chan CloudflareEmailRequest, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var message CloudflareEmailRequest
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&message))
+		deliveries <- message
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	svc := NewEmailService(nil, nil)
+	svc.SetCloudflareEmailWebhook(&CloudflareEmailWebhook{URL: server.URL, Secret: "unit-test-only"})
+	require.NoError(t, svc.SendNotificationEmail(
+		context.Background(),
+		NotificationEmailEventAnnouncementPublished,
+		"announcement:42:user@example.com",
+		"user@example.com",
+		"公告 / Announcement",
+		"<p>中英文公告</p>",
+	))
+
+	sent := <-deliveries
+	require.Equal(t, "announcement:42:user@example.com", sent.EventID)
+	require.Equal(t, "user@example.com", sent.Recipient)
+	require.Equal(t, "公告 / Announcement", sent.Subject)
+	require.Equal(t, "<p>中英文公告</p>", sent.HTML)
+}
+
 func TestCloudflareAuthEmailPreflightRejectsIncompleteWebhook(t *testing.T) {
 	t.Setenv("CLOUDFLARE_AUTH_EMAIL_ENABLED", "true")
 	for _, webhook := range []*CloudflareEmailWebhook{

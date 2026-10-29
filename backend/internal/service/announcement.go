@@ -52,6 +52,10 @@ var (
 		"ANNOUNCEMENT_TIME_RANGE_INVALID",
 		"starts_at must be before ends_at",
 	)
+	ErrAnnouncementEmailNotConfigured = infraerrors.ServiceUnavailable(
+		"ANNOUNCEMENT_EMAIL_NOT_CONFIGURED",
+		"announcement email service is not configured",
+	)
 )
 
 type AnnouncementTargeting = domain.AnnouncementTargeting

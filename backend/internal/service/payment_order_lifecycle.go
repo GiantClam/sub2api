@@ -429,7 +429,7 @@ func (s *PaymentService) getOrderProvider(ctx context.Context, o *dbent.PaymentO
 	if err != nil {
 		return nil, err
 	}
-	if err := CheckEasyPayMaintenance(prov.ProviderKey()); err != nil {
+	if err := checkEasyPayOrderMaintenance(prov.ProviderKey(), o.ID); err != nil {
 		return nil, err
 	}
 	return prov, nil

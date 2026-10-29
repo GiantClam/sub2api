@@ -126,7 +126,7 @@ func (s *EmailService) SetNotificationEmailService(notificationEmailService *Not
 }
 
 // SetCloudflareEmailWebhook configures balance-low delivery and, when explicitly
-// enabled, verification-code and admin test-email delivery.
+// enabled, verification-code, announcement, and admin test-email delivery.
 func (s *EmailService) SetCloudflareEmailWebhook(webhook *CloudflareEmailWebhook) {
 	s.cloudflareEmailWebhook = webhook
 }
@@ -161,11 +161,16 @@ func (s *EmailService) SendTestEmail(ctx context.Context, to, subject, body stri
 	return s.SendNotificationEmail(ctx, NotificationEmailEventAuthVerifyCode, "", to, subject, body)
 }
 
-// SendNotificationEmail sends a rendered notification. Balance alerts can be
-// routed through the Cloudflare Email Worker; verification messages additionally
-// require the auth opt-in. Other events retain their SMTP transport.
+// SendNotificationEmail sends a rendered notification. Balance alerts and
+// published announcements use the Cloudflare Email Worker when configured;
+// verification messages additionally require the auth opt-in. Other events
+// retain their SMTP transport.
 func (s *EmailService) SendNotificationEmail(ctx context.Context, event, eventID, to, subject, body string) error {
 	authWebhook := event == NotificationEmailEventAuthVerifyCode && s.IsCloudflareAuthEmailEnabled()
+	workerWebhook := event == NotificationEmailEventBalanceLow ||
+		event == NotificationEmailEventAnnouncementPublished ||
+		event == NotificationEmailEventPaymentReactivation ||
+		event == NotificationEmailEventPaymentReactivationFollowup
 	if authWebhook {
 		if err := s.CheckVerificationEmailConfigured(ctx); err != nil {
 			return err
@@ -180,7 +185,7 @@ func (s *EmailService) SendNotificationEmail(ctx context.Context, event, eventID
 			eventID = NotificationEmailEventAuthVerifyCode + ":" + hex.EncodeToString(id)
 		}
 	}
-	if authWebhook || (event == NotificationEmailEventBalanceLow && s.cloudflareEmailWebhook != nil) {
+	if (authWebhook || workerWebhook) && s.cloudflareEmailWebhook != nil {
 		return s.cloudflareEmailWebhook.Send(ctx, CloudflareEmailRequest{
 			EventID:   eventID,
 			Recipient: to,

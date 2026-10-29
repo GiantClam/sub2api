@@ -581,6 +581,49 @@ describe('PaymentView payment recovery', () => {
 
     expect(wrapper.find('[data-test="method-selector"]').text()).toBe('ldc')
   })
+
+  it('uses client-side routing when opening the Stripe payment page', async () => {
+    getCheckoutInfo.mockResolvedValue(checkoutInfoFixture({
+      methods: {
+        stripe: {
+          ...checkoutInfoFixture().data.methods.wxpay,
+          currency: 'USD',
+        },
+      },
+    }))
+    createOrder.mockResolvedValue({
+      order_id: 321,
+      amount: 10,
+      pay_amount: 10,
+      fee_rate: 0,
+      expires_at: '2099-01-01T00:10:00.000Z',
+      payment_type: 'stripe',
+      out_trade_no: 'sub2_stripe_321',
+      client_secret: 'pi_321_secret_test',
+      currency: 'USD',
+    })
+    routerResolve.mockReturnValue({ href: '/payment/stripe?order_id=321' })
+
+    const wrapper = shallowMount(PaymentView, {
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          Teleport: true,
+          Transition: false,
+        },
+      },
+    })
+    await flushPromises()
+    wrapper.getComponent(AmountInput).vm.$emit('update:modelValue', 10)
+    await flushPromises()
+
+    const submitButton = wrapper.findAll('button').find((button) => button.text().startsWith('payment.createOrder'))
+    expect(submitButton).toBeDefined()
+    await submitButton!.trigger('click')
+    await flushPromises()
+
+    expect(routerPush).toHaveBeenCalledWith('/payment/stripe?order_id=321')
+  })
 })
 
 describe('PaymentView WeChat JSAPI flow', () => {

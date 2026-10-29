@@ -11,17 +11,19 @@ import (
 
 // Task type constants
 const (
-	TaskTypeVerifyCode    = "verify_code"
-	TaskTypePasswordReset = "password_reset"
+	TaskTypeVerifyCode        = "verify_code"
+	TaskTypePasswordReset     = "password_reset"
+	TaskTypeNotificationBatch = "notification_batch"
 )
 
 // EmailTask 邮件发送任务
 type EmailTask struct {
-	Email    string
-	SiteName string
-	TaskType string // "verify_code" or "password_reset"
-	ResetURL string // Only used for password_reset task type
-	Locale   string // Optional Accept-Language locale hint
+	Email         string
+	SiteName      string
+	TaskType      string // "verify_code", "password_reset", or "notification_batch"
+	ResetURL      string // Only used for password_reset task type
+	Locale        string // Optional Accept-Language locale hint
+	Notifications []NotificationEmailSendInput
 }
 
 // EmailQueueService 异步邮件队列服务
@@ -94,8 +96,58 @@ func (s *EmailQueueService) processTask(workerID int, task EmailTask) {
 		} else {
 			logger.LegacyPrintf("service.email_queue", "[EmailQueue] Worker %d sent password reset to %s", workerID, task.Email)
 		}
+	case TaskTypeNotificationBatch:
+		if s.emailService == nil || s.emailService.notificationEmailService == nil {
+			logger.LegacyPrintf("service.email_queue", "[EmailQueue] Worker %d cannot send notification batch: notification email service is not configured", workerID)
+			return
+		}
+		for _, input := range task.Notifications {
+			itemCtx, itemCancel := context.WithTimeout(context.Background(), 30*time.Second)
+			err := s.emailService.notificationEmailService.Send(itemCtx, input)
+			itemCancel()
+			if err != nil {
+				logger.LegacyPrintf("service.email_queue", "[EmailQueue] Worker %d failed to send notification event %s to recipient hash %s: %v", workerID, input.Event, notificationEmailHash(input.RecipientEmail), err)
+				continue
+			}
+			logger.LegacyPrintf("service.email_queue", "[EmailQueue] Worker %d sent notification event %s to recipient hash %s", workerID, input.Event, notificationEmailHash(input.RecipientEmail))
+		}
 	default:
 		logger.LegacyPrintf("service.email_queue", "[EmailQueue] Worker %d unknown task type: %s", workerID, task.TaskType)
+	}
+}
+
+// EnqueueNotifications adds one asynchronous batch to the existing email
+// queue. Each notification keeps its own delivery key, so retries remain
+// idempotent at the notification service layer.
+func (s *EmailQueueService) EnqueueNotifications(inputs []NotificationEmailSendInput) error {
+	if len(inputs) == 0 {
+		return nil
+	}
+	copied := make([]NotificationEmailSendInput, 0, len(inputs))
+	for _, input := range inputs {
+		clone := input
+		if input.Variables != nil {
+			clone.Variables = make(map[string]string, len(input.Variables))
+			for key, value := range input.Variables {
+				clone.Variables[key] = value
+			}
+		}
+		if input.RawHTMLVariables != nil {
+			clone.RawHTMLVariables = make(map[string]string, len(input.RawHTMLVariables))
+			for key, value := range input.RawHTMLVariables {
+				clone.RawHTMLVariables[key] = value
+			}
+		}
+		copied = append(copied, clone)
+	}
+
+	task := EmailTask{TaskType: TaskTypeNotificationBatch, Notifications: copied}
+	select {
+	case s.taskChan <- task:
+		logger.LegacyPrintf("service.email_queue", "[EmailQueue] Enqueued notification batch with %d messages", len(copied))
+		return nil
+	default:
+		return fmt.Errorf("email queue is full")
 	}
 }
 

@@ -110,6 +110,7 @@ func (s *PaymentService) processPaymentReactivationInitialReminders(ctx context.
 				paymentorder.And(paymentorder.PayURLNotNil(), paymentorder.PayURLNEQ("")),
 				paymentorder.And(paymentorder.QrCodeNotNil(), paymentorder.QrCodeNEQ("")),
 				paymentorder.And(paymentorder.QrCodeImgNotNil(), paymentorder.QrCodeImgNEQ("")),
+				paymentorder.PaymentTradeNoNEQ(""),
 			),
 		).
 		Order(dbent.Asc(paymentorder.FieldCreatedAt)).
@@ -201,7 +202,7 @@ func paymentReactivationEligiblePendingOrder(order *dbent.PaymentOrder) bool {
 	if order == nil || order.OrderType != payment.OrderTypeBalance || order.Status != OrderStatusPending {
 		return false
 	}
-	return paymentOrderCheckoutURL(order) != "" || paymentOrderCheckoutQR(order) != ""
+	return paymentOrderCheckoutURL(order) != "" || paymentOrderCheckoutQR(order) != "" || strings.TrimSpace(order.PaymentTradeNo) != ""
 }
 
 func paymentReactivationUserHasPaidOrder(ctx context.Context, client *dbent.Client, userID int64) (bool, error) {

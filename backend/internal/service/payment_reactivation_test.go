@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	dbent "github.com/Wei-Shaw/sub2api/ent"
+	"github.com/Wei-Shaw/sub2api/internal/payment"
 	"github.com/stretchr/testify/require"
 )
 
@@ -59,4 +61,25 @@ func TestPaymentReactivationPurchaseURLPrefersFrontendURL(t *testing.T) {
 
 	svc := NewNotificationEmailService(repo, nil)
 	require.Equal(t, "https://app.example.com/purchase", paymentReactivationPurchaseURL(ctx, svc))
+}
+
+func TestPaymentReactivationEligiblePendingOrderAcceptsStripeIntent(t *testing.T) {
+	order := &dbent.PaymentOrder{
+		OrderType:      payment.OrderTypeBalance,
+		Status:         OrderStatusPending,
+		PaymentTradeNo: "pi_test_intent",
+	}
+	require.True(t, paymentReactivationEligiblePendingOrder(order))
+}
+
+func TestPaymentReactivationEligiblePendingOrderRequiresCheckoutArtifact(t *testing.T) {
+	order := &dbent.PaymentOrder{
+		OrderType: payment.OrderTypeBalance,
+		Status:    OrderStatusPending,
+	}
+	require.False(t, paymentReactivationEligiblePendingOrder(order))
+
+	order.Status = OrderStatusCompleted
+	order.PaymentTradeNo = "pi_test_intent"
+	require.False(t, paymentReactivationEligiblePendingOrder(order))
 }

@@ -918,6 +918,43 @@ func TestGatewayService_SelectAccountForModelWithPlatform_RoutedStickySessionHit
 	require.Equal(t, int64(1), acc.ID)
 }
 
+func TestGatewayService_ModelRoutingOrderOverridesGlobalAccountPriority(t *testing.T) {
+	ctx := context.Background()
+	groupID := int64(44)
+	model := "claude-opus-5-5-MAX"
+	repo := &mockAccountRepoForPlatform{
+		accounts: []Account{
+			{ID: 9, Platform: PlatformAnthropic, Priority: 1, Status: StatusActive, Schedulable: true},
+			{ID: 10, Platform: PlatformAnthropic, Priority: 3, Status: StatusActive, Schedulable: true},
+			{ID: 11, Platform: PlatformAnthropic, Priority: 4, Status: StatusActive, Schedulable: true},
+		},
+		accountsByID: map[int64]*Account{},
+	}
+	for i := range repo.accounts {
+		repo.accountsByID[repo.accounts[i].ID] = &repo.accounts[i]
+	}
+	groupRepo := &mockGroupRepoForGateway{groups: map[int64]*Group{
+		groupID: {
+			ID: groupID, Name: "shared", Platform: PlatformComposite, Status: StatusActive, Hydrated: true,
+			ModelRoutingEnabled: true,
+			ModelRouting:        map[string][]int64{model: {10, 11, 9}},
+		},
+	}}
+	svc := &GatewayService{accountRepo: repo, groupRepo: groupRepo, cfg: testConfig()}
+
+	selected, err := svc.selectAccountForModelWithPlatform(ctx, &groupID, "", model, nil, PlatformAnthropic)
+	require.NoError(t, err)
+	require.Equal(t, int64(10), selected.ID, "MAX route rank must win over the globally higher priority of account 9")
+
+	selected, err = svc.selectAccountForModelWithPlatform(ctx, &groupID, "", model, map[int64]struct{}{10: {}}, PlatformAnthropic)
+	require.NoError(t, err)
+	require.Equal(t, int64(11), selected.ID, "an unavailable primary must fail over in explicit route order")
+
+	selected, err = svc.selectAccountForModelWithPlatform(ctx, &groupID, "", model, map[int64]struct{}{10: {}, 11: {}}, PlatformAnthropic)
+	require.NoError(t, err)
+	require.Equal(t, int64(9), selected.ID, "the final configured fallback should be used after earlier accounts are excluded")
+}
+
 func TestGatewayService_SelectAccountForModelWithPlatform_RoutedFallbackToNormal(t *testing.T) {
 	ctx := context.Background()
 	groupID := int64(12)

@@ -252,9 +252,11 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 
 	// 获取模型路由配置（anthropic / openai 目标平台；composite 分组按目标平台判断）
 	var routingAccountIDs []int64
+	routingRanks := map[int64]int{}
 	if group != nil && requestedModel != "" &&
 		modelRoutingAppliesToPlatform(platform, group.Platform) {
 		routingAccountIDs = group.GetRoutingAccountIDs(requestedModel)
+		routingRanks = modelRoutingRanks(routingAccountIDs)
 		if s.debugModelRoutingEnabled() {
 			logger.LegacyPrintf("service.gateway", "[ModelRoutingDebug] context group routing: group_id=%d model=%s enabled=%v rules=%d matched_ids=%v session=%s sticky_account=%d",
 				group.ID, requestedModel, group.ModelRoutingEnabled, len(group.ModelRouting), routingAccountIDs, shortSessionHash(sessionHash), stickyAccountID)
@@ -349,7 +351,7 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 					"in_account_map", func() bool { _, ok := accountByID[stickyAccountID]; return ok }(),
 					"session", shortSessionHash(sessionHash),
 				)
-				if containsInt64(routingAccountIDs, stickyAccountID) && !isExcluded(stickyAccountID) {
+				if isPrimaryModelRoutingAccount(routingAccountIDs, stickyAccountID) && !isExcluded(stickyAccountID) {
 					// 粘性账号在路由列表中，优先使用
 					if stickyAccount, ok := accountByID[stickyAccountID]; ok {
 						var stickyCacheMissReason string
@@ -456,9 +458,13 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 			}
 
 			if len(routingAvailable) > 0 {
-				// 排序：优先级 > 负载率 > 最后使用时间
+				// Explicit model routing is an ordered failover list. The route rank
+				// wins over account-wide priority and current load.
 				sort.SliceStable(routingAvailable, func(i, j int) bool {
 					a, b := routingAvailable[i], routingAvailable[j]
+					if aRank, bRank := routingRanks[a.account.ID], routingRanks[b.account.ID]; aRank != bRank {
+						return aRank < bRank
+					}
 					if a.account.Priority != b.account.Priority {
 						return a.account.Priority < b.account.Priority
 					}
@@ -476,8 +482,6 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 						return a.account.LastUsedAt.Before(*b.account.LastUsedAt)
 					}
 				})
-				shuffleWithinSortGroups(routingAvailable)
-
 				// 4. 尝试获取槽位
 				for _, item := range routingAvailable {
 					result, err := s.tryAcquireAccountSlot(ctx, item.account.ID, item.account.Concurrency)
@@ -917,6 +921,25 @@ func (s *GatewayService) routingAccountIDsForRequest(ctx context.Context, groupI
 			group.ID, requestedModel, group.ModelRoutingEnabled, len(group.ModelRouting), ids)
 	}
 	return ids
+}
+
+// modelRoutingRanks preserves the explicit account order configured for a model.
+// A lower rank is preferred; duplicate IDs keep their first occurrence.
+func modelRoutingRanks(accountIDs []int64) map[int64]int {
+	ranks := make(map[int64]int, len(accountIDs))
+	for rank, accountID := range accountIDs {
+		if accountID <= 0 {
+			continue
+		}
+		if _, exists := ranks[accountID]; !exists {
+			ranks[accountID] = rank
+		}
+	}
+	return ranks
+}
+
+func isPrimaryModelRoutingAccount(accountIDs []int64, accountID int64) bool {
+	return len(accountIDs) > 0 && accountIDs[0] == accountID
 }
 
 func (s *GatewayService) resolveGatewayGroup(ctx context.Context, groupID *int64) (*Group, *int64, error) {
@@ -1892,6 +1915,7 @@ func shuffleWithinPriority(accounts []*Account) {
 func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}, platform string) (*Account, error) {
 	preferOAuth := platform == PlatformGemini
 	routingAccountIDs := s.routingAccountIDsForRequest(ctx, groupID, requestedModel, platform)
+	routingRanks := modelRoutingRanks(routingAccountIDs)
 
 	// require_privacy_set: 获取分组配置。GetByID 会聚合账号计数，旧选号路径不能用它。
 	var schedGroup *Group
@@ -1913,7 +1937,7 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 		// 1) Sticky session only applies if the bound account is within the routing set.
 		if sessionHash != "" && s.cache != nil {
 			accountID, err := s.cache.GetSessionAccountID(ctx, derefGroupID(groupID), sessionHash)
-			if err == nil && accountID > 0 && containsInt64(routingAccountIDs, accountID) {
+			if err == nil && accountID > 0 && isPrimaryModelRoutingAccount(routingAccountIDs, accountID) {
 				if _, excluded := excludedIDs[accountID]; !excluded {
 					account, err := s.getSchedulableAccount(ctx, accountID)
 					// 检查账号分组归属和平台匹配（确保粘性会话不会跨分组或跨平台）
@@ -1996,6 +2020,12 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 			}
 			if selected == nil {
 				selected = acc
+				continue
+			}
+			if accRank, selectedRank := routingRanks[acc.ID], routingRanks[selected.ID]; accRank != selectedRank {
+				if accRank < selectedRank {
+					selected = acc
+				}
 				continue
 			}
 			if acc.Priority < selected.Priority {
@@ -2158,6 +2188,7 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}, nativePlatform string) (*Account, error) {
 	preferOAuth := nativePlatform == PlatformGemini
 	routingAccountIDs := s.routingAccountIDsForRequest(ctx, groupID, requestedModel, nativePlatform)
+	routingRanks := modelRoutingRanks(routingAccountIDs)
 
 	// require_privacy_set: 获取分组配置。GetByID 会聚合账号计数，旧选号路径不能用它。
 	var schedGroup *Group
@@ -2177,7 +2208,7 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 		// 1) Sticky session only applies if the bound account is within the routing set.
 		if sessionHash != "" && s.cache != nil {
 			accountID, err := s.cache.GetSessionAccountID(ctx, derefGroupID(groupID), sessionHash)
-			if err == nil && accountID > 0 && containsInt64(routingAccountIDs, accountID) {
+			if err == nil && accountID > 0 && isPrimaryModelRoutingAccount(routingAccountIDs, accountID) {
 				if _, excluded := excludedIDs[accountID]; !excluded {
 					account, err := s.getSchedulableAccount(ctx, accountID)
 					// 检查账号分组归属和有效性：原生平台直接匹配，antigravity 需要启用混合调度
@@ -2262,6 +2293,12 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 			}
 			if selected == nil {
 				selected = acc
+				continue
+			}
+			if accRank, selectedRank := routingRanks[acc.ID], routingRanks[selected.ID]; accRank != selectedRank {
+				if accRank < selectedRank {
+					selected = acc
+				}
 				continue
 			}
 			if acc.Priority < selected.Priority {

@@ -486,6 +486,7 @@ const baseSettingsResponse = {
   payment_enabled_types: [],
   payment_balance_disabled: false,
   payment_balance_recharge_multiplier: 1,
+  payment_balance_usd_to_cny_rate: 6.5,
   payment_subscription_usd_to_cny_rate: 0,
   payment_recharge_fee_rate: 0,
   payment_recharge_bonus_tiers: [],
@@ -631,6 +632,21 @@ describe("admin SettingsView email domain quota copy", () => {
 });
 
 describe("admin SettingsView payment visible method controls", () => {
+  it("loads and saves the USD settlement rate separately from the promotion multiplier", async () => {
+    getSettings.mockResolvedValueOnce({ ...baseSettingsResponse, payment_balance_usd_to_cny_rate: 6.5 });
+    const wrapper = mountView();
+
+    await flushPromises();
+    await openPaymentTab(wrapper);
+    const rateInput = wrapper.get('[data-testid="payment-balance-usd-to-cny-rate"]');
+    expect((rateInput.element as HTMLInputElement).value).toBe("6.5");
+    await rateInput.setValue("6.7");
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+
+    expect(updateSettings).toHaveBeenCalledWith(expect.objectContaining({ payment_balance_usd_to_cny_rate: 6.7 }));
+  });
+
   beforeEach(() => {
     getSettings.mockReset();
     updateSettings.mockReset();

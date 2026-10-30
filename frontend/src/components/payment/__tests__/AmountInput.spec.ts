@@ -15,6 +15,13 @@ function mountInput(value: number | null = null) {
 }
 
 describe('recharge amount input', () => {
+  it('shows the selected payment currency before the amount field', () => {
+    const cny = mount(AmountInput, { props: { modelValue: null, currency: 'CNY' } })
+    const usd = mount(AmountInput, { props: { modelValue: null, currency: 'USD' } })
+    expect(cny.find('span.absolute').text()).toBe('¥')
+    expect(usd.find('span.absolute').text()).toBe('$')
+  })
+
   it.each(['10abc', '10.555', '-10', '1e2'])('restores the accepted amount after rejecting %s', async (value) => {
     const wrapper = mountInput(10)
     const input = wrapper.get('input')
@@ -75,6 +82,19 @@ describe('recharge bonus hints on quick amounts', () => {
     expect(button.get('[data-testid="quick-amount-bonus-badge"]').text()).toBe('+30%')
     // 1000 × 0.14 = 140 base, +30% = 182
     expect(button.get('[data-testid="quick-amount-credited"]').text()).toContain('$182.00')
+  })
+
+  it('converts CNY amount to USD before applying the promotion tier', () => {
+    const wrapper = mount(AmountInput, {
+      props: {
+        modelValue: null,
+        amounts: [15],
+        bonusTiers: [{ min_amount: 2, bonus_percent: 10 }],
+        currency: 'CNY',
+        usdToCnyRate: 6.5,
+      },
+    })
+    expect(wrapper.get('[data-testid="quick-amount-15"]').text()).toContain('$2.53769231')
   })
 
   it('discount mode: tag reads N% OFF and the second line shows the discounted payment', () => {

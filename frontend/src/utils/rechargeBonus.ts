@@ -28,7 +28,7 @@ export interface RechargeBonusQuote {
   percent: number
   /** 网关收款基数（支付币种，不含手续费）；赠金模式 = 输入金额，折扣模式 = 折后金额 */
   payBase: number
-  /** 到账基数（输入金额 × 倍率，USD），不含赠送 */
+  /** USD wallet base after FX conversion and multiplier, before bonus */
   base: number
   /** 免费额度（USD）：赠金模式为额外赠送，折扣模式为未付费却到账的部分 */
   bonus: number
@@ -127,7 +127,7 @@ export function isDuplicateRechargeBonusMinAmount(tiers: RechargeBonusTierDraft[
   return tiers.some((tier, i) => i !== index && isRechargeBonusMinAmountValid(tier.min_amount) && minAmountKey(tier.min_amount) === key)
 }
 
-// 命中规则：取不超过支付金额的最大阈值档位；与后端 matchRechargeBonusTier 一致。
+// With USD settlement enabled, tier thresholds use the converted USD base; otherwise legacy input units remain.
 export function matchRechargeBonusTier(tiers: RechargeBonusTier[], paymentAmount: number): RechargeBonusTier | null {
   if (!Number.isFinite(paymentAmount) || paymentAmount <= 0) return null
   let matched: RechargeBonusTier | null = null
@@ -149,9 +149,12 @@ export interface RechargeBonusQuoteOptions {
   mode?: RechargeBonusMode
   /** 支付币种小数位，折扣模式实付基数按此精度四舍五入 */
   currencyDigits?: number
+  /** USD settlement rate in CNY per USD. Zero keeps legacy balance behavior. */
+  usdToCnyRate?: number
+  currency?: string
 }
 
-// 充值页报价：阈值按支付金额比较；赠金模式按到账基数加赠送，折扣模式按百分比减实付。
+// 充值页报价：启用 USD 账本时按 USD 基数匹配阈值；折扣实付仍使用支付币种精度。
 // 与后端 quoteRechargeBonus 一致（含折扣 ≥ 100% 的 fail-safe）。
 export function quoteRechargeBonus(
   tiers: RechargeBonusTier[],
@@ -163,25 +166,33 @@ export function quoteRechargeBonus(
   const amount = Number.isFinite(paymentAmount) && paymentAmount > 0 ? paymentAmount : 0
   const rate = typeof opts.multiplier === 'number' && Number.isFinite(opts.multiplier) && opts.multiplier > 0 ? opts.multiplier : 1
   const digits = typeof opts.currencyDigits === 'number' && Number.isInteger(opts.currencyDigits) && opts.currencyDigits >= 0 ? opts.currencyDigits : 2
-  const base = roundRechargeAmount(amount * rate)
+  const settlementRate = typeof opts.usdToCnyRate === 'number' && Number.isFinite(opts.usdToCnyRate) && opts.usdToCnyRate > 0
+    ? opts.usdToCnyRate
+    : 0
+  const currency = String(opts.currency || '').trim().toUpperCase()
+  const ledgerPrecision = settlementRate > 0 ? 8 : 2
+  const toLedgerUSD = (nativeAmount: number) =>
+    settlementRate > 0 && currency === 'CNY' ? nativeAmount / settlementRate : nativeAmount
+  const ledgerAmount = roundRechargeAmount(toLedgerUSD(amount), ledgerPrecision)
+  const base = roundRechargeAmount(ledgerAmount * rate, ledgerPrecision)
   const quote: RechargeBonusQuote = { mode, percent: 0, payBase: amount, base, bonus: 0, credited: base, tier: null }
-  const tier = matchRechargeBonusTier(tiers, amount)
+  const tier = matchRechargeBonusTier(tiers, settlementRate > 0 ? ledgerAmount : amount)
   if (!tier || tier.bonus_percent <= 0) return quote
   quote.tier = tier
   if (mode === 'discount') {
     if (tier.bonus_percent >= 100) return quote
     const payBase = roundRechargeAmount((amount * (100 - tier.bonus_percent)) / 100, digits)
     if (payBase <= 0 || payBase >= amount) return quote
-    const paidCredit = roundRechargeAmount(payBase * rate)
+    const paidCredit = roundRechargeAmount(toLedgerUSD(payBase) * rate, ledgerPrecision)
     quote.payBase = payBase
-    quote.bonus = Math.max(0, roundRechargeAmount(base - paidCredit))
+    quote.bonus = Math.max(0, roundRechargeAmount(base - paidCredit, ledgerPrecision))
     quote.percent = tier.bonus_percent
     return quote
   }
   const bonus = calculateRechargeBonus(base, tier.bonus_percent)
   if (bonus <= 0) return quote
   quote.bonus = bonus
-  quote.credited = roundRechargeAmount(base + bonus)
+  quote.credited = roundRechargeAmount(base + bonus, ledgerPrecision)
   quote.percent = tier.bonus_percent
   return quote
 }

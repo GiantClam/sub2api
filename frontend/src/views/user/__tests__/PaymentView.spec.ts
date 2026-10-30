@@ -125,6 +125,7 @@ function checkoutInfoFixture(overrides: Partial<CheckoutInfoResponse> = {}) {
     plans: [],
     balance_disabled: false,
     balance_recharge_multiplier: 1,
+    balance_usd_to_cny_rate: 0,
     subscription_usd_to_cny_rate: 0,
     recharge_fee_rate: 0,
     help_text: '',
@@ -381,6 +382,7 @@ describe('PaymentView recharge rate preview', () => {
     routeState.query = {}
     getCheckoutInfo.mockReset().mockResolvedValue(checkoutInfoFixture({
       balance_recharge_multiplier: 0.5,
+      balance_usd_to_cny_rate: 6.5,
       methods: {
         stripe: {
           ...checkoutInfoFixture().data.methods.wxpay,
@@ -403,11 +405,46 @@ describe('PaymentView recharge rate preview', () => {
     await flushPromises()
 
     expect(translate).toHaveBeenCalledWith('payment.rechargeRatePreview', {
-      currency: 'USD',
-      usd: '0.50',
+      rate: '6.50',
+      multiplier: '0.50',
     })
-    expect(en.payment.rechargeRatePreview).toBe('Current rate: 1 {currency} = {usd} USD')
-    expect(zh.payment.rechargeRatePreview).toBe('当前倍率：1 {currency} = {usd} USD')
+    expect(en.payment.rechargeRatePreview).toBe('Settlement rate: 1 USD = {rate} CNY; promotion multiplier: {multiplier}x')
+    expect(zh.payment.rechargeRatePreview).toBe('结算汇率：1 USD = {rate} CNY；充值倍率：{multiplier}x')
+  })
+
+  it('previews CNY wallet credit in USD when settlement FX is enabled', async () => {
+    translate.mockClear()
+    routeState.path = '/purchase'
+    routeState.query = {}
+    getCheckoutInfo.mockReset().mockResolvedValue(checkoutInfoFixture({
+      balance_recharge_multiplier: 1,
+      balance_usd_to_cny_rate: 6.5,
+      methods: {
+        alipay: {
+          ...checkoutInfoFixture().data.methods.wxpay,
+          currency: 'CNY',
+        },
+      },
+    }))
+
+    const wrapper = shallowMount(PaymentView, {
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          Teleport: true,
+          Transition: false,
+        },
+      },
+    })
+    await flushPromises()
+    wrapper.getComponent(AmountInput).vm.$emit('update:modelValue', 10)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('1.53846154')
+    expect(translate).toHaveBeenCalledWith('payment.rechargeRatePreview', {
+      rate: '6.50',
+      multiplier: '1.00',
+    })
   })
 })
 

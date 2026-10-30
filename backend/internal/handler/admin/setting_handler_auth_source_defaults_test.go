@@ -258,6 +258,30 @@ func TestSettingHandler_UpdateSettings_PersistsPaymentVisibleMethodsAndAdvancedS
 	require.Equal(t, true, data["openai_advanced_scheduler_subscription_priority_enabled"])
 }
 
+func TestSettingHandler_UpdateSettingsPersistsBalanceUSDToCNYRate(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	repo := &settingHandlerRepoStub{values: map[string]string{}}
+	settings := service.NewSettingService(repo, &config.Config{Default: config.DefaultConfig{UserConcurrency: 5}})
+	paymentConfig := service.NewPaymentConfigService(nil, repo, nil)
+	handler := NewSettingHandler(settings, nil, nil, nil, paymentConfig, nil, nil)
+
+	raw, err := json.Marshal(map[string]any{"payment_balance_usd_to_cny_rate": 6.5})
+	require.NoError(t, err)
+	rec := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(rec)
+	ctx.Request = httptest.NewRequest(http.MethodPut, "/api/v1/admin/settings", bytes.NewReader(raw))
+	ctx.Request.Header.Set("Content-Type", "application/json")
+	handler.UpdateSettings(ctx)
+
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	require.Equal(t, "6.5", repo.values[service.SettingBalanceUSDToCNYRate])
+	var envelope response.Response
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &envelope))
+	data, ok := envelope.Data.(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, 6.5, data["payment_balance_usd_to_cny_rate"])
+}
+
 func TestSettingHandler_UpdateSettings_PreservesLegacyBlankPaymentVisibleMethodSource(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	repo := &settingHandlerRepoStub{

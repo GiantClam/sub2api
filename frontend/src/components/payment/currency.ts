@@ -57,3 +57,12 @@ export function formatPaymentAmount(amount: number, currency?: string | null, lo
     return `${normalized} ${(Number.isFinite(amount) ? amount : 0).toFixed(fractionDigits)}`
   }
 }
+
+export function formatLedgerAmount(amount: number, locale?: string): string {
+  return new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 8,
+  }).format(Number.isFinite(amount) ? amount : 0)
+}

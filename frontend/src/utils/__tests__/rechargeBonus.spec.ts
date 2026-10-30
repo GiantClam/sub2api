@@ -92,6 +92,40 @@ describe('rechargeBonus helpers', () => {
     expect(quoteRechargeBonus([], 100)).toMatchObject({ percent: 0, bonus: 0, credited: 100 })
   })
 
+  it('converts CNY to USD before matching tiers or applying promotional multipliers', () => {
+    expect(quoteRechargeBonus([], 10, { currency: 'CNY', usdToCnyRate: 6.5 })).toMatchObject({
+      base: 1.53846154,
+      credited: 1.53846154,
+    })
+    expect(quoteRechargeBonus([{ min_amount: 2, bonus_percent: 10 }], 15, {
+      currency: 'CNY', usdToCnyRate: 6.5,
+    })).toMatchObject({
+      percent: 10,
+      base: 2.30769231,
+      bonus: 0.23,
+      credited: 2.53769231,
+    })
+    expect(quoteRechargeBonus([{ min_amount: 2, bonus_percent: 10 }], 15, {
+      currency: 'USD', usdToCnyRate: 6.5,
+    })).toMatchObject({
+      percent: 10,
+      base: 15,
+      bonus: 1.5,
+      credited: 16.5,
+    })
+  })
+
+  it('converts the discounted CNY pay base using USD settlement precision', () => {
+    expect(quoteRechargeBonus([{ min_amount: 1, bonus_percent: 10 }], 10, {
+      currency: 'CNY', usdToCnyRate: 6.5, mode: 'discount',
+    })).toMatchObject({
+      payBase: 9,
+      base: 1.53846154,
+      bonus: 0.15384616,
+      credited: 1.53846154,
+    })
+  })
+
   it('quotes discount mode: credit stays, pay base shrinks, free part recorded as bonus', () => {
     expect(quoteRechargeBonus(tiers, 500, { mode: 'discount' })).toMatchObject({
       mode: 'discount', percent: 30, payBase: 350, base: 500, bonus: 150, credited: 500,

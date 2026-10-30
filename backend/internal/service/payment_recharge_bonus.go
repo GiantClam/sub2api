@@ -16,7 +16,8 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-// 充值优惠阶梯：余额充值订单按用户输入的支付金额命中阶梯（取不超过该金额的最大 MinAmount），
+// 充值优惠阶梯：启用 USD 账本时按汇率换算后的 USD 基数命中阶梯，旧账本按输入金额匹配。
+// 取不超过比较金额的最大 MinAmount，
 // 整条阶梯只有一种模式（RECHARGE_BONUS_MODE）：
 //   - bonus（赠金）：实付不变，在到账基数（输入 × 充值倍率）之上额外赠送 BonusPercent% 的 USD 余额；
 //   - discount（折扣）：到账不变（输入 × 倍率），实付基数按 BonusPercent% 打折。

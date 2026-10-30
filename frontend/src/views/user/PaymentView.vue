@@ -67,6 +67,7 @@
                 :multiplier="balanceRechargeMultiplier"
                 :currency="selectedCurrency"
                 :usd-to-cny-rate="balanceUsdToCnyRate"
+                :fixed-credits="checkout.recharge_fixed_credits"
               />
               <p v-if="amountError" class="mt-2 text-xs text-amber-600 dark:text-amber-300">{{ amountError }}</p>
             </div>
@@ -99,7 +100,7 @@
                   <span class="text-gray-500 dark:text-gray-400">{{ t('payment.rechargeBonus.amountLabelWithPercent', { percent: formatRechargeBonusNumber(bonusQuote.percent) }) }}</span>
                   <span class="font-medium text-red-600 dark:text-red-400">+{{ formatLedgerAmount(bonusQuote.bonus, localeCode) }}</span>
                 </div>
-                <div v-if="showCreditedBalance" class="flex justify-between" :class="{ 'border-t border-gray-200 pt-2 dark:border-dark-600': !showActualPay && !showBonusRow }" data-testid="recharge-credited-row">
+                <div v-if="showCreditedBalance && supportsBalanceCurrency" class="flex justify-between" :class="{ 'border-t border-gray-200 pt-2 dark:border-dark-600': !showActualPay && !showBonusRow }" data-testid="recharge-credited-row">
                   <span class="text-gray-500 dark:text-gray-400">{{ t('payment.creditedBalance') }}</span>
                   <span :class="bonusQuote.percent > 0 ? 'font-semibold text-gray-900 dark:text-white' : 'text-gray-900 dark:text-white'">{{ formatLedgerAmount(creditedAmount, localeCode) }}</span>
                 </div>
@@ -667,19 +668,31 @@ function formatSelectedSubscriptionPaymentAmount(value: number): string {
 
 // 充值优惠：USD 账本按换算后的 USD 基数命中阈值和计算赠金，折扣实付仍按本币精度计算。
 // 与后端 quoteRechargeBonus 一致；渠道限额、手续费、实付都按折后基数（payBaseAmount）计算，提交仍发送输入金额。
-const bonusQuote = computed(() => quoteRechargeBonus(rechargeBonusTiers.value, validAmount.value, {
-  multiplier: balanceRechargeMultiplier.value,
-  mode: rechargeBonusMode.value,
-  currencyDigits: currencyFractionDigits(selectedCurrency.value),
-  currency: selectedCurrency.value,
-  usdToCnyRate: balanceUsdToCnyRate.value,
-}))
+function rechargeQuoteForCurrency(value: number, currency: string) {
+  return quoteRechargeBonus(rechargeBonusTiers.value, value, {
+    multiplier: balanceRechargeMultiplier.value,
+    mode: rechargeBonusMode.value,
+    currencyDigits: currencyFractionDigits(currency),
+    currency,
+    usdToCnyRate: balanceUsdToCnyRate.value,
+    fixedCredits: checkout.value.recharge_fixed_credits,
+  })
+}
+const bonusQuote = computed(() => rechargeQuoteForCurrency(validAmount.value, selectedCurrency.value))
 const payBaseAmount = computed(() => bonusQuote.value.payBase)
 const discountAmount = computed(() => roundPaymentAmount(validAmount.value - payBaseAmount.value, selectedCurrency.value))
 const creditedAmount = computed(() => bonusQuote.value.credited)
 const showBonusRow = computed(() => bonusQuote.value.mode !== 'discount' && bonusQuote.value.bonus > 0)
 const showCreditedBalance = computed(() => balanceUsdToCnyRate.value > 0 || balanceRechargeMultiplier.value !== 1 || bonusQuote.value.percent > 0)
 const supportsBalanceCurrency = computed(() => balanceUsdToCnyRate.value <= 0 || selectedCurrency.value === 'CNY' || selectedCurrency.value === 'USD')
+
+function balanceMethodAvailable(method: string): boolean {
+  const limits = visibleMethods.value[method]
+  if (!limits || limits.available === false) return false
+  const currency = normalizePaymentCurrency(limits.currency)
+  if (balanceUsdToCnyRate.value > 0 && currency !== 'CNY' && currency !== 'USD') return false
+  return amountFitsMethod(rechargeQuoteForCurrency(validAmount.value, currency).payBase, method)
+}
 
 const methodOptions = computed<PaymentMethodOption[]>(() =>
   enabledMethods.value.map((type) => {
@@ -688,7 +701,7 @@ const methodOptions = computed<PaymentMethodOption[]>(() =>
       type,
       display_name: ml?.display_name,
       fee_rate: ml?.fee_rate ?? 0,
-      available: ml?.available !== false && (balanceUsdToCnyRate.value <= 0 || ['CNY', 'USD'].includes(normalizePaymentCurrency(ml?.currency))) && amountFitsMethod(payBaseAmount.value, type),
+      available: balanceMethodAvailable(type),
     }
   })
 )
@@ -710,7 +723,7 @@ const amountError = computed(() => {
   if (validAmount.value <= 0) return ''
   if (!supportsBalanceCurrency.value) return t('payment.unsupportedBalanceCurrency')
   // No method can handle this amount
-  if (!enabledMethods.value.some((m) => amountFitsMethod(payBaseAmount.value, m))) {
+  if (!enabledMethods.value.some(balanceMethodAvailable)) {
     return t('payment.amountNoMethod')
   }
   // Selected method can't handle this amount (but others can)
@@ -725,8 +738,7 @@ const amountError = computed(() => {
 const canSubmit = computed(() =>
   validAmount.value > 0
     && supportsBalanceCurrency.value
-    && amountFitsMethod(payBaseAmount.value, selectedMethod.value)
-    && selectedLimit.value?.available !== false
+    && balanceMethodAvailable(selectedMethod.value)
 )
 
 const subPaymentAmount = computed(() => {
@@ -773,9 +785,9 @@ const canSubmitSubscription = computed(() =>
 )
 
 // Auto-switch to first available method when current selection can't handle the amount
-watch(() => [payBaseAmount.value, selectedMethod.value] as const, ([amt, method]) => {
-  if (amt <= 0 || amountFitsMethod(amt, method)) return
-  const available = enabledMethods.value.find((m) => amountFitsMethod(amt, m))
+watch(() => [validAmount.value, selectedMethod.value, balanceUsdToCnyRate.value, activeTab.value] as const, ([, method]) => {
+  if (activeTab.value !== 'recharge' || balanceMethodAvailable(method)) return
+  const available = enabledMethods.value.find(balanceMethodAvailable)
   if (available) selectedMethod.value = available
 })
 
@@ -1185,7 +1197,8 @@ onMounted(async () => {
         const bi = order.indexOf(b)
         return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi)
       })
-      selectedMethod.value = sorted[0]
+      const balanceCheckout = !checkout.value.balance_disabled && route.query.tab !== 'subscription'
+      selectedMethod.value = (balanceCheckout ? sorted.find(balanceMethodAvailable) : sorted.find(method => visibleMethods.value[method]?.available !== false)) || sorted[0]
     }
     if (typeof window !== 'undefined') {
       if (hasWechatResumeQuery(route.query)) {

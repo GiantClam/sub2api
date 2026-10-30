@@ -48,6 +48,28 @@ export interface PaymentConfig {
   stripe_publishable_key: string
 }
 
+export interface CheckoutRechargeTier {
+  id: string
+  name: string
+  description: string
+  order_type: OrderType
+  featured: boolean
+  payment_options: {
+    payment_type: string
+    currency: string
+    amount: number
+    pay_amount: number
+    credited_balance: number
+  }[]
+}
+
+export interface RechargeFixedCredit {
+  currency: string
+  amount: number
+  /** USD base before multiplier/bonus, independent of gateway availability. */
+  credited_balance_base_usd: number
+}
+
 export interface MethodLimit {
   currency?: string
   display_name?: string
@@ -69,6 +91,8 @@ export interface MethodLimitsResponse {
 
 /** Response from /payment/checkout-info API — single call for the payment page */
 export interface CheckoutInfoResponse {
+  recharge_tiers?: CheckoutRechargeTier[]
+  recharge_fixed_credits?: RechargeFixedCredit[]
   methods: Record<string, MethodLimit>
   global_min: number
   global_max: number

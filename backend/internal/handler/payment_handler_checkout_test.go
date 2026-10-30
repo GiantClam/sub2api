@@ -39,7 +39,7 @@ func (repo *checkoutSettingRepo) GetMultiple(_ context.Context, keys []string) (
 	return values, nil
 }
 
-func checkoutHandlerFixture(t *testing.T, tiers string) (*PaymentHandler, *sql.DB) {
+func checkoutHandlerFixture(t *testing.T, tiers string, overrides ...map[string]string) (*PaymentHandler, *sql.DB) {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
 	db, err := sql.Open("sqlite", "file:"+strings.ReplaceAll(t.Name(), "/", "_")+"?mode=memory&cache=shared")
@@ -61,6 +61,11 @@ func checkoutHandlerFixture(t *testing.T, tiers string) (*PaymentHandler, *sql.D
 		service.SettingPaymentEnabled: "true", service.SettingMinRechargeAmount: "0",
 		service.SettingPaymentRechargeTiers: tiers, service.SettingRechargeFeeRate: "1",
 	}}
+	for _, values := range overrides {
+		for key, value := range values {
+			repo.values[key] = value
+		}
+	}
 	return NewPaymentHandler(nil, service.NewPaymentConfigService(client, repo, nil)), db
 }
 
@@ -99,6 +104,22 @@ func TestCheckoutInfoMissingRechargeCatalogReturnsArray(t *testing.T) {
 	}
 	require.NoError(t, json.Unmarshal(writer.Body.Bytes(), &body))
 	require.JSONEq(t, "[]", string(body.Data["recharge_tiers"]))
+	require.JSONEq(t, "[]", string(body.Data["recharge_fixed_credits"]))
+}
+
+func TestCheckoutInfoExposesFixedCreditWithoutGatewayOption(t *testing.T) {
+	handler, _ := checkoutHandlerFixture(t, `[{"id":"standard","name":"Standard","prices":{"USD":2.31},"credited_balance":2.30769231}]`, map[string]string{
+		service.SettingBalanceUSDToCNYRate: "6.5",
+		service.SettingMinRechargeAmount:   "10",
+	})
+	writer := callCheckoutHandler(handler)
+	require.Equal(t, http.StatusOK, writer.Code, writer.Body.String())
+	var body struct {
+		Data checkoutInfoResponse `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(writer.Body.Bytes(), &body))
+	require.Empty(t, body.Data.RechargeTiers)
+	require.Equal(t, []service.RechargeFixedCredit{{Currency: "USD", Amount: 2.31, CreditedBalanceBaseUSD: 2.30769231}}, body.Data.RechargeFixedCredits)
 }
 
 func TestCheckoutInfoPropagatesSubscriptionCatalogReadErrors(t *testing.T) {

@@ -73,7 +73,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { RechargeBonusTier } from '@/types/payment'
+import type { RechargeFixedCredit, RechargeBonusTier } from '@/types/payment'
 import { formatRechargeBonusNumber, quoteRechargeBonus, type RechargeBonusMode } from '@/utils/rechargeBonus'
 import { currencySymbol, formatLedgerAmount, formatPaymentAmount } from './currency'
 
@@ -92,6 +92,7 @@ const props = withDefaults(defineProps<{
   currency?: string
   /** CNY per USD. Zero keeps legacy balance behavior. */
   usdToCnyRate?: number
+  fixedCredits?: RechargeFixedCredit[]
 }>(), {
   amounts: () => [10, 20, 50, 100, 200, 500, 1000, 2000, 5000],
   min: 0,
@@ -101,6 +102,7 @@ const props = withDefaults(defineProps<{
   multiplier: 1,
   currency: undefined,
   usdToCnyRate: 0,
+  fixedCredits: () => [],
 })
 
 const emit = defineEmits<{
@@ -135,6 +137,7 @@ function quoteFor(amt: number) {
     currencyDigits: currencyDigits(),
     currency: props.currency,
     usdToCnyRate: props.usdToCnyRate,
+    fixedCredits: props.fixedCredits,
   })
 }
 

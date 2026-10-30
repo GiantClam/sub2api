@@ -376,6 +376,78 @@ describe('PaymentView subscription plan grid', () => {
 })
 
 describe('PaymentView recharge rate preview', () => {
+  it('preserves fixed package credit and avoids a promotion threshold above its USD base', async () => {
+    routeState.path = '/purchase'
+    routeState.query = {}
+    getCheckoutInfo.mockReset().mockResolvedValue(checkoutInfoFixture({
+      balance_usd_to_cny_rate: 6.5,
+      recharge_bonus_mode: 'discount',
+      recharge_bonus_tiers: [{ min_amount: 2.31, bonus_percent: 10 }],
+      recharge_fixed_credits: [{ currency: 'USD', amount: 2.31, credited_balance_base_usd: 2.30769231 }],
+      recharge_tiers: [{
+        id: 'standard', name: 'Standard', description: '', order_type: 'balance', featured: false,
+        payment_options: [{ payment_type: 'stripe', currency: 'USD', amount: 2.31, pay_amount: 2.31, credited_balance: 2.30769231 }],
+      }],
+      methods: { stripe: { ...checkoutInfoFixture().data.methods.wxpay, currency: 'USD' } },
+    }))
+    const wrapper = shallowMount(PaymentView, {
+      global: { stubs: { AppLayout: { template: '<div><slot /></div>' }, Teleport: true, Transition: false } },
+    })
+    await flushPromises()
+    wrapper.getComponent(AmountInput).vm.$emit('update:modelValue', 2.31)
+    await flushPromises()
+    expect(wrapper.get('[data-testid="recharge-credited-row"]').text()).toContain('2.30769231')
+    expect(wrapper.find('[data-testid="recharge-discount-row"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain(formatPaymentAmount(2.31, 'USD'))
+  })
+
+  it('disables amounts beyond gateway limits even when their fixed package is hidden', async () => {
+    routeState.path = '/purchase'
+    routeState.query = {}
+    getCheckoutInfo.mockReset().mockResolvedValue(checkoutInfoFixture({
+      balance_usd_to_cny_rate: 6.5,
+      recharge_bonus_mode: 'discount',
+      recharge_bonus_tiers: [{ min_amount: 2.31, bonus_percent: 10 }],
+      recharge_tiers: [],
+      recharge_fixed_credits: [{ currency: 'USD', amount: 2.31, credited_balance_base_usd: 2.30769231 }],
+      methods: { stripe: { ...checkoutInfoFixture().data.methods.wxpay, currency: 'USD', single_max: 2.10 } },
+    }))
+    const wrapper = shallowMount(PaymentView, {
+      global: { stubs: { AppLayout: { template: '<div><slot /></div>' }, Teleport: true, Transition: false } },
+    })
+    await flushPromises()
+    wrapper.getComponent(AmountInput).vm.$emit('update:modelValue', 2.31)
+    await flushPromises()
+    expect(wrapper.get('[data-testid="recharge-credited-row"]').text()).toContain('2.30769231')
+    expect(wrapper.find('[data-testid="recharge-discount-row"]').exists()).toBe(false)
+    const submit = wrapper.findAll('button').find(button => button.text().startsWith('payment.createOrder'))
+    expect(submit?.attributes('disabled')).toBeDefined()
+    expect(createOrder).not.toHaveBeenCalled()
+  })
+
+  it('selects a supported payment currency and keeps it when amount limits cause fallback', async () => {
+    routeState.path = '/purchase'
+    routeState.query = {}
+    const limits = checkoutInfoFixture().data.methods.wxpay
+    getCheckoutInfo.mockReset().mockResolvedValue(checkoutInfoFixture({
+      balance_usd_to_cny_rate: 6.5,
+      methods: {
+        stripe: { ...limits, currency: 'EUR' },
+        alipay: { ...limits, currency: 'CNY', single_max: 5 },
+        airwallex: { ...limits, currency: 'USD' },
+      },
+    }))
+    const wrapper = shallowMount(PaymentView, {
+      global: { stubs: { AppLayout: { template: '<div><slot /></div>' }, Teleport: true, Transition: false } },
+    })
+    await flushPromises()
+    expect(wrapper.getComponent(AmountInput).props('currency')).toBe('CNY')
+    wrapper.getComponent(AmountInput).vm.$emit('update:modelValue', 10)
+    await flushPromises()
+    expect(wrapper.getComponent(AmountInput).props('currency')).toBe('USD')
+    expect(wrapper.text()).not.toContain('payment.unsupportedBalanceCurrency')
+  })
+
   it('uses the selected payment method currency in both locale templates', async () => {
     translate.mockClear()
     routeState.path = '/purchase'

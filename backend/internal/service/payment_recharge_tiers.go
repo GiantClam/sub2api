@@ -45,6 +45,31 @@ type CheckoutRechargeTier struct {
 	PaymentOptions []RechargePaymentOption `json:"payment_options"`
 }
 
+// RechargeFixedCredit remains available when gateway limits hide a catalog option.
+type RechargeFixedCredit struct {
+	Currency               string  `json:"currency"`
+	Amount                 float64 `json:"amount"`
+	CreditedBalanceBaseUSD float64 `json:"credited_balance_base_usd"`
+}
+
+func BuildCheckoutRechargeFixedCredits(cfg *PaymentConfig) []RechargeFixedCredit {
+	result := []RechargeFixedCredit{}
+	if cfg == nil || !cfg.Enabled || cfg.BalanceDisabled || !balanceLedgerEnabled(cfg) {
+		return result
+	}
+	for _, tier := range cfg.RechargeTiers {
+		if tier.CreditedBalance == nil {
+			continue
+		}
+		for _, code := range []string{"CNY", "USD"} {
+			if amount, ok := tier.Prices[code]; ok {
+				result = append(result, RechargeFixedCredit{Currency: code, Amount: amount, CreditedBalanceBaseUSD: *tier.CreditedBalance})
+			}
+		}
+	}
+	return result
+}
+
 func parseRechargeTiers(raw string) ([]RechargeTier, error) {
 	if strings.TrimSpace(raw) == "" {
 		return []RechargeTier{}, nil

@@ -94,7 +94,7 @@ describe('recharge bonus hints on quick amounts', () => {
         usdToCnyRate: 6.5,
       },
     })
-    expect(wrapper.get('[data-testid="quick-amount-15"]').text()).toContain('$2.53769231')
+    expect(wrapper.get('[data-testid="quick-amount-15"]').text()).toContain('$2.53846154')
   })
 
   it('discount mode: tag reads N% OFF and the second line shows the discounted payment', () => {

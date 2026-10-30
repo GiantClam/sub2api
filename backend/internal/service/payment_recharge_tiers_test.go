@@ -17,6 +17,33 @@ func rechargeTierFixture() RechargeTier {
 	}
 }
 
+func TestCheckoutRechargeTierExposesFixedUSDBaseBeforePromotions(t *testing.T) {
+	credit := 2.30769231
+	cfg := &PaymentConfig{
+		Enabled: true, BalanceUSDToCNYRate: 6.5, BalanceRechargeMultiplier: 2,
+		RechargeTiers:      []RechargeTier{{ID: "standard", Name: "Standard", Prices: CurrencyAmounts{"CNY": 15, "USD": 2.31}, CreditedBalance: &credit}},
+		RechargeBonusTiers: []RechargeBonusTier{{MinAmount: 2, BonusPercent: 10}},
+	}
+	tiers := BuildCheckoutRechargeTiers(cfg, map[string]MethodLimits{"stripe": {Currency: "USD"}})
+	require.Len(t, tiers, 1)
+	require.Equal(t, credit, BuildCheckoutRechargeFixedCredits(cfg)[0].CreditedBalanceBaseUSD)
+	require.Equal(t, 5.07692308, tiers[0].PaymentOptions[0].CreditedBalance)
+}
+
+func TestCheckoutFixedCreditsSurviveFilteredPaymentOptions(t *testing.T) {
+	credit := 2.30769231
+	cfg := &PaymentConfig{
+		Enabled: true, BalanceUSDToCNYRate: 6.5, BalanceRechargeMultiplier: 1,
+		RechargeTiers:      []RechargeTier{{ID: "standard", Prices: CurrencyAmounts{"USD": 2.31}, CreditedBalance: &credit}},
+		RechargeBonusMode:  RechargeBonusModeDiscount,
+		RechargeBonusTiers: []RechargeBonusTier{{MinAmount: 2.31, BonusPercent: 10}},
+	}
+	require.Empty(t, BuildCheckoutRechargeTiers(cfg, map[string]MethodLimits{"stripe": {Currency: "USD", SingleMax: 2.10}}))
+	require.Equal(t, []RechargeFixedCredit{{Currency: "USD", Amount: 2.31, CreditedBalanceBaseUSD: credit}}, BuildCheckoutRechargeFixedCredits(cfg))
+	cfg.BalanceUSDToCNYRate = 0
+	require.Empty(t, BuildCheckoutRechargeFixedCredits(cfg))
+}
+
 func TestRechargeTiersConfigPreservesOmittedAndClearsExplicitEmpty(t *testing.T) {
 	ctx := context.Background()
 	repo := &paymentConfigSettingRepoStub{values: map[string]string{}}

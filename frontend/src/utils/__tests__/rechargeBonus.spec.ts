@@ -102,8 +102,8 @@ describe('rechargeBonus helpers', () => {
     })).toMatchObject({
       percent: 10,
       base: 2.30769231,
-      bonus: 0.23,
-      credited: 2.53769231,
+      bonus: 0.23076923,
+      credited: 2.53846154,
     })
     expect(quoteRechargeBonus([{ min_amount: 2, bonus_percent: 10 }], 15, {
       currency: 'USD', usdToCnyRate: 6.5,
@@ -113,6 +113,34 @@ describe('rechargeBonus helpers', () => {
       bonus: 1.5,
       credited: 16.5,
     })
+  })
+
+  it('rounds USD only after applying the promotion multiplier', () => {
+    expect(quoteRechargeBonus([], 1, { currency: 'CNY', usdToCnyRate: 6.5, multiplier: 2 }).credited).toBe(0.30769231)
+    expect(quoteRechargeBonus([{ min_amount: 0.29, bonus_percent: 10 }], 2.03, {
+      currency: 'CNY', usdToCnyRate: 7.0000001, mode: 'discount',
+    })).toMatchObject({ percent: 0, payBase: 2.03 })
+    expect(quoteRechargeBonus([{ min_amount: 1, bonus_percent: 0.1 }], 2.31, {
+      currency: 'USD', usdToCnyRate: 6.5,
+    })).toMatchObject({ bonus: 0.00231, credited: 2.31231 })
+  })
+
+  it('uses the fixed USD package base before matching promotions', () => {
+    const fixedCredits = [{
+      currency: 'USD', amount: 2.31,
+      credited_balance_base_usd: 2.30769231,
+    }]
+    expect(quoteRechargeBonus([], 2.31, { currency: 'USD', usdToCnyRate: 6.5, fixedCredits }).credited).toBe(2.30769231)
+    expect(quoteRechargeBonus([{ min_amount: 2.31, bonus_percent: 10 }], 2.31, {
+      currency: 'USD', usdToCnyRate: 6.5, fixedCredits,
+    })).toMatchObject({ percent: 0, credited: 2.30769231 })
+  })
+
+  it('retains fixed credit when gateway limits remove every package option', () => {
+    expect(quoteRechargeBonus([{ min_amount: 2.31, bonus_percent: 10 }], 2.31, {
+      currency: 'USD', usdToCnyRate: 6.5, mode: 'discount',
+      fixedCredits: [{ currency: 'USD', amount: 2.31, credited_balance_base_usd: 2.30769231 }],
+    })).toMatchObject({ percent: 0, payBase: 2.31, credited: 2.30769231 })
   })
 
   it('converts the discounted CNY pay base using USD settlement precision', () => {

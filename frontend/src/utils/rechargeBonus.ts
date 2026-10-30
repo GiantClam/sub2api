@@ -1,4 +1,4 @@
-import type { RechargeBonusTier } from '@/types/payment'
+import type { RechargeFixedCredit, RechargeBonusTier } from '@/types/payment'
 
 export type { RechargeBonusTier }
 
@@ -152,6 +152,7 @@ export interface RechargeBonusQuoteOptions {
   /** USD settlement rate in CNY per USD. Zero keeps legacy balance behavior. */
   usdToCnyRate?: number
   currency?: string
+  fixedCredits?: RechargeFixedCredit[]
 }
 
 // 充值页报价：启用 USD 账本时按 USD 基数匹配阈值；折扣实付仍使用支付币种精度。
@@ -173,7 +174,11 @@ export function quoteRechargeBonus(
   const ledgerPrecision = settlementRate > 0 ? 8 : 2
   const toLedgerUSD = (nativeAmount: number) =>
     settlementRate > 0 && currency === 'CNY' ? nativeAmount / settlementRate : nativeAmount
-  const ledgerAmount = roundRechargeAmount(toLedgerUSD(amount), ledgerPrecision)
+  const fixedPackage = settlementRate > 0 ? opts.fixedCredits?.find(tier =>
+    Number.isFinite(tier.credited_balance_base_usd) && tier.credited_balance_base_usd > 0 &&
+    tier.currency === currency && tier.amount === amount,
+  ) : undefined
+  const ledgerAmount = fixedPackage?.credited_balance_base_usd ?? toLedgerUSD(amount)
   const base = roundRechargeAmount(ledgerAmount * rate, ledgerPrecision)
   const quote: RechargeBonusQuote = { mode, percent: 0, payBase: amount, base, bonus: 0, credited: base, tier: null }
   const tier = matchRechargeBonusTier(tiers, settlementRate > 0 ? ledgerAmount : amount)
@@ -189,7 +194,7 @@ export function quoteRechargeBonus(
     quote.percent = tier.bonus_percent
     return quote
   }
-  const bonus = calculateRechargeBonus(base, tier.bonus_percent)
+  const bonus = roundRechargeAmount((base * tier.bonus_percent) / 100, ledgerPrecision)
   if (bonus <= 0) return quote
   quote.bonus = bonus
   quote.credited = roundRechargeAmount(base + bonus, ledgerPrecision)

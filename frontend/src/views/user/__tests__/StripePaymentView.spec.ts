@@ -8,6 +8,7 @@ const routeState = vi.hoisted(() => ({
   query: {} as Record<string, unknown>,
 }))
 const routerPush = vi.hoisted(() => vi.fn())
+const routerResolve = vi.hoisted(() => vi.fn(() => ({ href: '/payment/result?order_id=42&status=success' })))
 const getOrder = vi.hoisted(() => vi.fn())
 const paymentStore = vi.hoisted(() => ({
   config: { stripe_publishable_key: 'pk_test' } as { stripe_publishable_key?: string },
@@ -34,7 +35,7 @@ vi.mock('vue-router', async () => {
   return {
     ...actual,
     useRoute: () => routeState,
-    useRouter: () => ({ push: routerPush }),
+    useRouter: () => ({ push: routerPush, resolve: routerResolve }),
   }
 })
 

@@ -234,7 +234,7 @@ func (s *AuthService) registerWithPolicy(ctx context.Context, policy registratio
 		return "", nil, fmt.Errorf("hash password: %w", err)
 	}
 
-	grantPlan := s.resolveSignupGrantPlan(ctx, "email")
+	grantPlan := s.resolveSignupGrantPlan(ctx, "email", email)
 
 	// 新用户默认 RPM（0 = 不限制）。注册时写入，后续作为用户级兜底。
 	var defaultRPMLimit int
@@ -632,7 +632,7 @@ func (s *AuthService) LoginOrRegisterOAuth(ctx context.Context, email, username 
 			}
 
 			signupSource := inferLegacySignupSource(email)
-			grantPlan := s.resolveSignupGrantPlan(ctx, signupSource)
+			grantPlan := s.resolveSignupGrantPlan(ctx, signupSource, email)
 			var defaultRPMLimit int
 			if s.settingService != nil {
 				defaultRPMLimit = s.settingService.GetDefaultUserRPMLimit(ctx)
@@ -781,7 +781,7 @@ func (s *AuthService) loginOrRegisterOAuthWithTokenPair(ctx context.Context, ema
 			if strings.TrimSpace(signupSource) == "" {
 				signupSource = inferLegacySignupSource(email)
 			}
-			grantPlan := s.resolveSignupGrantPlan(ctx, signupSource)
+			grantPlan := s.resolveSignupGrantPlan(ctx, signupSource, email)
 			var defaultRPMLimit int
 			if s.settingService != nil {
 				defaultRPMLimit = s.settingService.GetDefaultUserRPMLimit(ctx)
@@ -926,7 +926,7 @@ func (s *AuthService) assignSubscriptions(ctx context.Context, userID int64, ite
 	}
 }
 
-func (s *AuthService) resolveSignupGrantPlan(ctx context.Context, signupSource string) signupGrantPlan {
+func (s *AuthService) resolveSignupGrantPlan(ctx context.Context, signupSource, email string) signupGrantPlan {
 	plan := signupGrantPlan{}
 	if s != nil && s.cfg != nil {
 		plan.Balance = s.cfg.Default.UserBalance
@@ -952,10 +952,10 @@ func (s *AuthService) resolveSignupGrantPlan(ctx context.Context, signupSource s
 	resolved, enabled, err := s.settingService.ResolveAuthSourceGrantSettings(ctx, signupSource, false)
 	if err != nil {
 		logger.LegacyPrintf("service.auth", "[Auth] Failed to load auth source signup defaults for %s: %v", signupSource, err)
-		return plan
+		return s.applyRegistrationEmailBonusPolicy(ctx, email, plan)
 	}
 	if !enabled {
-		return plan // plan.PlatformQuotas 已含全局层
+		return s.applyRegistrationEmailBonusPolicy(ctx, email, plan) // plan.PlatformQuotas 已含全局层
 	}
 
 	plan.Balance = resolved.Balance
@@ -973,6 +973,16 @@ func (s *AuthService) resolveSignupGrantPlan(ctx context.Context, signupSource s
 	}
 	// ==============================================================================
 
+	return s.applyRegistrationEmailBonusPolicy(ctx, email, plan)
+}
+
+func (s *AuthService) applyRegistrationEmailBonusPolicy(ctx context.Context, email string, plan signupGrantPlan) signupGrantPlan {
+	if s == nil || s.settingService == nil {
+		return plan
+	}
+	if s.settingService.IsRegistrationEmailBonusDomainBlacklisted(ctx, email) {
+		plan.Balance = 0
+	}
 	return plan
 }
 

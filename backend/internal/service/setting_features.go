@@ -54,6 +54,20 @@ func (s *SettingService) GetRegistrationEmailSuffixWhitelist(ctx context.Context
 	return ParseRegistrationEmailSuffixWhitelist(value)
 }
 
+// GetRegistrationEmailBonusDomainBlacklist returns normalized domains whose
+// new users can register but receive no initial balance.
+func (s *SettingService) GetRegistrationEmailBonusDomainBlacklist(ctx context.Context) []string {
+	value, err := s.settingRepo.GetValue(ctx, SettingKeyRegistrationEmailBonusDomainBlacklist)
+	if err != nil {
+		return []string{}
+	}
+	return ParseRegistrationEmailBonusDomainBlacklist(value)
+}
+
+func (s *SettingService) IsRegistrationEmailBonusDomainBlacklisted(ctx context.Context, email string) bool {
+	return IsRegistrationEmailBonusDomainBlacklisted(email, s.GetRegistrationEmailBonusDomainBlacklist(ctx))
+}
+
 // IsPromoCodeEnabled 检查是否启用优惠码功能
 func (s *SettingService) IsPromoCodeEnabled(ctx context.Context) bool {
 	value, err := s.settingRepo.GetValue(ctx, SettingKeyPromoCodeEnabled)

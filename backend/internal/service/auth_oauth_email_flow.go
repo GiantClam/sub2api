@@ -151,7 +151,7 @@ func (s *AuthService) RegisterOAuthEmailAccount(
 	}
 
 	signupSource = normalizeOAuthSignupSource(signupSource)
-	grantPlan := s.resolveSignupGrantPlan(ctx, signupSource)
+	grantPlan := s.resolveSignupGrantPlan(ctx, signupSource, email)
 
 	user := &User{
 		Email:        email,
@@ -234,7 +234,7 @@ func (s *AuthService) RegisterVerifiedOAuthEmailAccount(
 	}
 
 	signupSource = normalizeOAuthSignupSource(signupSource)
-	grantPlan := s.resolveSignupGrantPlan(ctx, signupSource)
+	grantPlan := s.resolveSignupGrantPlan(ctx, signupSource, email)
 	var defaultRPMLimit int
 	if s.settingService != nil {
 		defaultRPMLimit = s.settingService.GetDefaultUserRPMLimit(ctx)
@@ -294,7 +294,7 @@ func (s *AuthService) FinalizeOAuthEmailAccount(
 	}
 
 	s.updateOAuthSignupSource(ctx, user.ID, signupSource)
-	grantPlan := s.resolveSignupGrantPlan(ctx, signupSource)
+	grantPlan := s.resolveSignupGrantPlan(ctx, signupSource, user.Email)
 	s.assignSubscriptions(ctx, user.ID, grantPlan.Subscriptions, "auto assigned by signup defaults")
 	// snapshot user × platform quota（fail-open）
 	_ = s.snapshotPlatformQuotaDefaults(ctx, user.ID, &grantPlan)

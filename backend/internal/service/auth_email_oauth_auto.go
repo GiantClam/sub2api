@@ -174,7 +174,7 @@ func (s *AuthService) createEmailOAuthUser(ctx context.Context, email, username,
 	if err != nil {
 		return nil, fmt.Errorf("hash password: %w", err)
 	}
-	grantPlan := s.resolveSignupGrantPlan(ctx, providerType)
+	grantPlan := s.resolveSignupGrantPlan(ctx, providerType, email)
 	var defaultRPMLimit int
 	if s.settingService != nil {
 		defaultRPMLimit = s.settingService.GetDefaultUserRPMLimit(ctx)

@@ -110,6 +110,14 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 		normalizedWhitelist = []string{}
 	}
 	settings.RegistrationEmailSuffixWhitelist = normalizedWhitelist
+	normalizedBonusBlacklist, err := NormalizeRegistrationEmailBonusDomainBlacklist(settings.RegistrationEmailBonusDomainBlacklist)
+	if err != nil {
+		return nil, infraerrors.BadRequest("INVALID_REGISTRATION_EMAIL_BONUS_DOMAIN_BLACKLIST", err.Error())
+	}
+	if normalizedBonusBlacklist == nil {
+		normalizedBonusBlacklist = []string{}
+	}
+	settings.RegistrationEmailBonusDomainBlacklist = normalizedBonusBlacklist
 	normalizedForwardedClientIPHeaders, err := config.NormalizeForwardedClientIPHeaders(settings.ForwardedClientIPHeaders)
 	if err != nil {
 		return nil, infraerrors.BadRequest("INVALID_FORWARDED_CLIENT_IP_HEADERS", err.Error())
@@ -170,6 +178,11 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	}
 	updates[SettingKeyRegistrationEmailSuffixWhitelist] = string(registrationEmailSuffixWhitelistJSON)
 	updates[SettingKeyRegistrationEmailDomainQuotaEnabled] = strconv.FormatBool(settings.RegistrationEmailDomainQuotaEnabled)
+	registrationEmailBonusDomainBlacklistJSON, err := json.Marshal(settings.RegistrationEmailBonusDomainBlacklist)
+	if err != nil {
+		return nil, fmt.Errorf("marshal registration email bonus domain blacklist: %w", err)
+	}
+	updates[SettingKeyRegistrationEmailBonusDomainBlacklist] = string(registrationEmailBonusDomainBlacklistJSON)
 	updates[SettingKeyPromoCodeEnabled] = strconv.FormatBool(settings.PromoCodeEnabled)
 	updates[SettingKeyPasswordResetEnabled] = strconv.FormatBool(settings.PasswordResetEnabled)
 	updates[SettingKeyFrontendURL] = settings.FrontendURL

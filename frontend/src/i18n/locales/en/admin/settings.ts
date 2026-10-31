@@ -163,6 +163,12 @@ export default {
         emailDomainQuota: 'Non-allowlist Domain Quota',
         emailDomainQuotaHint:
           'When enabled and the allowlist is not empty, every other registrable domain can register one account. When disabled, non-allowlist domains are rejected. Has no effect while the allowlist is empty',
+        emailBonusDomainBlacklist: 'Signup Balance Domain Blocklist',
+        emailBonusDomainBlacklistHint:
+          'Users from matching domains can still register, but their initial balance is 0. Supports exact domains and explicit *. rules, such as 24mail.json.cm or *.temporary.example',
+        emailBonusDomainBlacklistPlaceholder: '24mail.json.cm, *.temporary.example',
+        emailBonusDomainBlacklistInputHint:
+          'Leave empty to apply the configured signup balance to every domain. Only new accounts are affected.',
         promoCode: 'Promo Code',
         promoCodeHint: 'Allow users to use promo codes during registration',
         invitationCode: 'Invitation Code Registration',

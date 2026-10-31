@@ -29,6 +29,26 @@ func TestParseRegistrationEmailSuffixWhitelist(t *testing.T) {
 	require.Equal(t, []string{"@example.com", "@foo.bar", "*.edu.cn"}, got)
 }
 
+func TestNormalizeRegistrationEmailBonusDomainBlacklist(t *testing.T) {
+	got, err := NormalizeRegistrationEmailBonusDomainBlacklist([]string{
+		"24mail.json.cm",
+		"@EXAMPLE.COM",
+		"*.TEMPORARY.example",
+	})
+	require.NoError(t, err)
+	require.Equal(t, []string{"@24mail.json.cm", "@example.com", "*.temporary.example"}, got)
+}
+
+func TestIsRegistrationEmailBonusDomainBlacklisted(t *testing.T) {
+	blacklist := []string{"@24mail.json.cm", "*.temporary.example"}
+	require.True(t, IsRegistrationEmailBonusDomainBlacklisted("user@24mail.json.cm", blacklist))
+	require.True(t, IsRegistrationEmailBonusDomainBlacklisted("user@24mail.json.cm.", blacklist))
+	require.False(t, IsRegistrationEmailBonusDomainBlacklisted("user@sub.24mail.json.cm", blacklist))
+	require.True(t, IsRegistrationEmailBonusDomainBlacklisted("user@temporary.example", blacklist))
+	require.True(t, IsRegistrationEmailBonusDomainBlacklisted("user@sub.temporary.example", blacklist))
+	require.False(t, IsRegistrationEmailBonusDomainBlacklisted("user@normal.example", blacklist))
+}
+
 func TestIsRegistrationEmailSuffixAllowed(t *testing.T) {
 	require.True(t, IsRegistrationEmailSuffixAllowed("user@example.com", []string{"@example.com"}))
 	require.True(t, IsRegistrationEmailSuffixAllowed("user@example.com.", []string{"@example.com"}))

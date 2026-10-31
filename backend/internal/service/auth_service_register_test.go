@@ -819,6 +819,37 @@ func TestAuthService_Register_UsesEmailAuthSourceDefaultsWhenGrantEnabled(t *tes
 	require.Equal(t, 30, assigner.calls[0].ValidityDays)
 }
 
+func TestAuthService_Register_BlacklistedEmailGetsZeroBalance(t *testing.T) {
+	repo := &userRepoStub{nextID: 55}
+	service := newAuthService(repo, map[string]string{
+		SettingKeyRegistrationEnabled:                   "true",
+		SettingKeyDefaultBalance:                        "12.5",
+		SettingKeyRegistrationEmailBonusDomainBlacklist: `["@24mail.json.cm"]`,
+		SettingKeyAuthSourceDefaultEmailBalance:         "9.5",
+		SettingKeyAuthSourceDefaultEmailGrantOnSignup:   "true",
+	}, nil, nil)
+
+	_, user, err := service.Register(context.Background(), "new@24mail.json.cm", "password")
+	require.NoError(t, err)
+	require.NotNil(t, user)
+	require.Zero(t, user.Balance)
+}
+
+func TestAuthService_Register_NonBlacklistedEmailKeepsExistingBalancePlan(t *testing.T) {
+	repo := &userRepoStub{nextID: 56}
+	service := newAuthService(repo, map[string]string{
+		SettingKeyRegistrationEnabled:                   "true",
+		SettingKeyDefaultBalance:                        "12.5",
+		SettingKeyRegistrationEmailBonusDomainBlacklist: `["@24mail.json.cm"]`,
+		SettingKeyAuthSourceDefaultEmailGrantOnSignup:   "false",
+	}, nil, nil)
+
+	_, user, err := service.Register(context.Background(), "new@normal.example", "password")
+	require.NoError(t, err)
+	require.NotNil(t, user)
+	require.Equal(t, 12.5, user.Balance)
+}
+
 func TestAuthService_Register_GrantOnSignupFalseFallsBackToGlobalDefaults(t *testing.T) {
 	repo := &userRepoStub{nextID: 53}
 	assigner := &defaultSubscriptionAssignerStub{}

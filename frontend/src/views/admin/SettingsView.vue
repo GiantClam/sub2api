@@ -1512,6 +1512,69 @@
                 />
               </div>
 
+              <!-- Signup Balance Domain Blacklist -->
+              <div class="border-t border-gray-100 pt-4 dark:border-dark-700">
+                <label class="font-medium text-gray-900 dark:text-white">{{
+                  t("admin.settings.registration.emailBonusDomainBlacklist")
+                }}</label>
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  {{
+                    t("admin.settings.registration.emailBonusDomainBlacklistHint")
+                  }}
+                </p>
+                <div
+                  class="mt-3 rounded-lg border border-gray-300 bg-white p-2 dark:border-dark-500 dark:bg-dark-700"
+                >
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span
+                      v-for="domain in registrationEmailBonusDomainBlacklistTags"
+                      :key="domain"
+                      class="inline-flex items-center gap-1 rounded bg-gray-100 px-2 py-1 text-xs font-mono text-gray-700 dark:bg-dark-600 dark:text-gray-200"
+                    >
+                      <span>{{ domain }}</span>
+                      <button
+                        type="button"
+                        class="rounded-full text-gray-500 hover:bg-gray-200 hover:text-gray-700 dark:text-gray-300 dark:hover:bg-dark-500 dark:hover:text-white"
+                        @click="removeRegistrationEmailBonusDomainBlacklistTag(domain)"
+                      >
+                        <Icon
+                          name="x"
+                          size="xs"
+                          class="h-3.5 w-3.5"
+                          :stroke-width="2"
+                        />
+                      </button>
+                    </span>
+
+                    <div
+                      class="flex min-w-[220px] flex-1 items-center gap-1 rounded border border-transparent px-2 py-1 focus-within:border-primary-300 dark:focus-within:border-primary-700"
+                    >
+                      <input
+                        v-model="registrationEmailBonusDomainBlacklistDraft"
+                        type="text"
+                        class="w-full bg-transparent text-sm font-mono text-gray-900 outline-none placeholder:text-gray-400 dark:text-white dark:placeholder:text-gray-500"
+                        :placeholder="
+                          t(
+                            'admin.settings.registration.emailBonusDomainBlacklistPlaceholder',
+                          )
+                        "
+                        @input="handleRegistrationEmailBonusDomainBlacklistDraftInput"
+                        @keydown="handleRegistrationEmailBonusDomainBlacklistDraftKeydown"
+                        @blur="commitRegistrationEmailBonusDomainBlacklistDraft"
+                        @paste="handleRegistrationEmailBonusDomainBlacklistPaste"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  {{
+                    t(
+                      "admin.settings.registration.emailBonusDomainBlacklistInputHint",
+                    )
+                  }}
+                </p>
+              </div>
+
               <!-- Promo Code -->
               <div
                 class="flex items-center justify-between border-t border-gray-100 pt-4 dark:border-dark-700"
@@ -9164,6 +9227,8 @@ const smtpPasswordManuallyEdited = ref(false);
 const testEmailAddress = ref("");
 const registrationEmailSuffixWhitelistTags = ref<string[]>([]);
 const registrationEmailSuffixWhitelistDraft = ref("");
+const registrationEmailBonusDomainBlacklistTags = ref<string[]>([]);
+const registrationEmailBonusDomainBlacklistDraft = ref("");
 const forwardedClientIpHeaderDraft = ref("");
 const tablePageSizeOptionsInput = ref("10, 20, 50, 100");
 
@@ -9768,6 +9833,7 @@ const form = reactive<SettingsForm>({
   email_verify_enabled: false,
   registration_email_suffix_whitelist: [],
   registration_email_domain_quota_enabled: false,
+  registration_email_bonus_domain_blacklist: [],
   promo_code_enabled: true,
   invitation_code_enabled: false,
   password_reset_enabled: false,
@@ -10552,6 +10618,76 @@ function handleRegistrationEmailSuffixWhitelistPaste(event: ClipboardEvent) {
   }
 }
 
+function removeRegistrationEmailBonusDomainBlacklistTag(domain: string) {
+  registrationEmailBonusDomainBlacklistTags.value =
+    registrationEmailBonusDomainBlacklistTags.value.filter(
+      (item) => item !== domain,
+    );
+}
+
+function addRegistrationEmailBonusDomainBlacklistTag(raw: string) {
+  const domain = normalizeRegistrationEmailSuffixDomain(raw);
+  if (
+    !isRegistrationEmailSuffixDomainValid(domain) ||
+    registrationEmailBonusDomainBlacklistTags.value.includes(domain)
+  ) {
+    return;
+  }
+  registrationEmailBonusDomainBlacklistTags.value = [
+    ...registrationEmailBonusDomainBlacklistTags.value,
+    domain,
+  ];
+}
+
+function commitRegistrationEmailBonusDomainBlacklistDraft() {
+  if (!registrationEmailBonusDomainBlacklistDraft.value) {
+    return;
+  }
+  addRegistrationEmailBonusDomainBlacklistTag(
+    registrationEmailBonusDomainBlacklistDraft.value,
+  );
+  registrationEmailBonusDomainBlacklistDraft.value = "";
+}
+
+function handleRegistrationEmailBonusDomainBlacklistDraftInput() {
+  registrationEmailBonusDomainBlacklistDraft.value =
+    normalizeRegistrationEmailSuffixDomain(
+      registrationEmailBonusDomainBlacklistDraft.value,
+    );
+}
+
+function handleRegistrationEmailBonusDomainBlacklistDraftKeydown(
+  event: KeyboardEvent,
+) {
+  if (event.isComposing) {
+    return;
+  }
+  if (registrationEmailSuffixWhitelistSeparatorKeys.has(event.key)) {
+    event.preventDefault();
+    commitRegistrationEmailBonusDomainBlacklistDraft();
+    return;
+  }
+  if (
+    event.key === "Backspace" &&
+    !registrationEmailBonusDomainBlacklistDraft.value &&
+    registrationEmailBonusDomainBlacklistTags.value.length > 0
+  ) {
+    registrationEmailBonusDomainBlacklistTags.value.pop();
+  }
+}
+
+function handleRegistrationEmailBonusDomainBlacklistPaste(event: ClipboardEvent) {
+  const text = event.clipboardData?.getData("text") || "";
+  if (!text.trim()) {
+    return;
+  }
+  event.preventDefault();
+  for (const domain of parseRegistrationEmailSuffixWhitelistInput(text)) {
+    addRegistrationEmailBonusDomainBlacklistTag(domain);
+  }
+  registrationEmailBonusDomainBlacklistDraft.value = "";
+}
+
 const forwardedClientIpHeaderSeparatorKeys = new Set([
   " ",
   ",",
@@ -11113,6 +11249,10 @@ async function loadSettings() {
       normalizeRegistrationEmailSuffixDomains(
         settings.registration_email_suffix_whitelist,
       );
+    registrationEmailBonusDomainBlacklistTags.value =
+      normalizeRegistrationEmailSuffixDomains(
+        settings.registration_email_bonus_domain_blacklist,
+      );
     form.forwarded_client_ip_headers = normalizeForwardedClientIpHeaders(
       settings.forwarded_client_ip_headers,
     );
@@ -11123,6 +11263,7 @@ async function loadSettings() {
         : [10, 20, 50, 100],
     );
     registrationEmailSuffixWhitelistDraft.value = "";
+    registrationEmailBonusDomainBlacklistDraft.value = "";
     form.smtp_password = "";
     smtpPasswordManuallyEdited.value = false;
     form.turnstile_secret_key = "";
@@ -11475,6 +11616,10 @@ async function saveSettings() {
         ),
       registration_email_domain_quota_enabled:
         form.registration_email_domain_quota_enabled,
+      registration_email_bonus_domain_blacklist:
+        registrationEmailBonusDomainBlacklistTags.value.map((domain) =>
+          domain.startsWith("*.") ? domain : `@${domain}`,
+        ),
       promo_code_enabled: form.promo_code_enabled,
       invitation_code_enabled: form.invitation_code_enabled,
       password_reset_enabled: form.password_reset_enabled,
@@ -11856,6 +12001,10 @@ async function saveSettings() {
       normalizeRegistrationEmailSuffixDomains(
         updated.registration_email_suffix_whitelist,
       );
+    registrationEmailBonusDomainBlacklistTags.value =
+      normalizeRegistrationEmailSuffixDomains(
+        updated.registration_email_bonus_domain_blacklist,
+      );
     form.forwarded_client_ip_headers = normalizeForwardedClientIpHeaders(
       updated.forwarded_client_ip_headers,
     );
@@ -11866,6 +12015,7 @@ async function saveSettings() {
         : [10, 20, 50, 100],
     );
     registrationEmailSuffixWhitelistDraft.value = "";
+    registrationEmailBonusDomainBlacklistDraft.value = "";
     form.smtp_password = "";
     smtpPasswordManuallyEdited.value = false;
     form.turnstile_secret_key = "";

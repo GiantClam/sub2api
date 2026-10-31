@@ -367,6 +367,28 @@ func TestSettingService_UpdateSettings_RegistrationEmailSuffixWhitelist_Invalid(
 	require.Equal(t, "INVALID_REGISTRATION_EMAIL_SUFFIX_WHITELIST", infraerrors.Reason(err))
 }
 
+func TestSettingService_UpdateSettings_RegistrationEmailBonusDomainBlacklist_Normalized(t *testing.T) {
+	repo := &settingUpdateRepoStub{}
+	svc := NewSettingService(repo, &config.Config{})
+
+	err := svc.UpdateSettings(context.Background(), &SystemSettings{
+		RegistrationEmailBonusDomainBlacklist: []string{"24mail.json.cm", "*.TEMPORARY.example"},
+	})
+	require.NoError(t, err)
+	require.Equal(t, `["@24mail.json.cm","*.temporary.example"]`, repo.updates[SettingKeyRegistrationEmailBonusDomainBlacklist])
+}
+
+func TestSettingService_UpdateSettings_RegistrationEmailBonusDomainBlacklist_Invalid(t *testing.T) {
+	repo := &settingUpdateRepoStub{}
+	svc := NewSettingService(repo, &config.Config{})
+
+	err := svc.UpdateSettings(context.Background(), &SystemSettings{
+		RegistrationEmailBonusDomainBlacklist: []string{"*."},
+	})
+	require.Error(t, err)
+	require.Equal(t, "INVALID_REGISTRATION_EMAIL_BONUS_DOMAIN_BLACKLIST", infraerrors.Reason(err))
+}
+
 func TestParseDefaultSubscriptions_NormalizesValues(t *testing.T) {
 	got := parseDefaultSubscriptions(`[{"group_id":11,"validity_days":30},{"group_id":11,"validity_days":60},{"group_id":0,"validity_days":10},{"group_id":12,"validity_days":99999}]`)
 	require.Equal(t, []DefaultSubscriptionSetting{

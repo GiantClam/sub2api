@@ -163,6 +163,12 @@ export default {
         emailDomainQuota: '非白名单域名限量注册',
         emailDomainQuotaHint:
           '开启后，白名单非空时，其他可注册主域名各限注册一个账户；关闭时非白名单域名直接拒绝注册。白名单为空时本开关无效果',
+        emailBonusDomainBlacklist: '注册赠送余额域名黑名单',
+        emailBonusDomainBlacklistHint:
+          '命中域名的新用户仍可注册，但初始余额为 0；支持精确域名和 *. 通配规则，例如 24mail.json.cm、*.temporary.example',
+        emailBonusDomainBlacklistPlaceholder: '24mail.json.cm, *.temporary.example',
+        emailBonusDomainBlacklistInputHint:
+          '留空则不限制注册赠送余额。该配置只影响新账号，不修改已有账号余额。',
         promoCode: '优惠码',
         promoCodeHint: '允许用户在注册时使用优惠码',
         invitationCode: '邀请码注册',

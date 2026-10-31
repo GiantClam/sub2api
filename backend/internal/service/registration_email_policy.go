@@ -97,6 +97,54 @@ func ParseRegistrationEmailSuffixWhitelist(raw string) []string {
 	return normalized
 }
 
+// NormalizeRegistrationEmailBonusDomainBlacklist normalizes exact and wildcard
+// domain rules for the signup-balance blacklist. Exact domains are stored in
+// canonical "@domain" form; wildcard rules retain the "*." prefix.
+func NormalizeRegistrationEmailBonusDomainBlacklist(raw []string) ([]string, error) {
+	return normalizeRegistrationEmailSuffixWhitelist(raw, true)
+}
+
+// ParseRegistrationEmailBonusDomainBlacklist parses the persisted blacklist.
+// Invalid entries are ignored to preserve availability when reading old data.
+func ParseRegistrationEmailBonusDomainBlacklist(raw string) []string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return []string{}
+	}
+	var items []string
+	if err := json.Unmarshal([]byte(raw), &items); err != nil {
+		return []string{}
+	}
+	normalized, _ := normalizeRegistrationEmailSuffixWhitelist(items, false)
+	if len(normalized) == 0 {
+		return []string{}
+	}
+	return normalized
+}
+
+// IsRegistrationEmailBonusDomainBlacklisted reports whether email matches an
+// exact or explicitly wildcarded blacklist domain.
+func IsRegistrationEmailBonusDomainBlacklisted(email string, blacklist []string) bool {
+	if len(blacklist) == 0 {
+		return false
+	}
+	_, domain, ok := splitEmailForPolicy(email)
+	if !ok {
+		return false
+	}
+	suffix := "@" + domain
+	for _, blocked := range blacklist {
+		blocked = strings.ToLower(strings.TrimSpace(blocked))
+		if strings.HasPrefix(blocked, "@") && suffix == blocked {
+			return true
+		}
+		if strings.HasPrefix(blocked, "*.") && registrationEmailDomainMatchesWildcard(domain, blocked) {
+			return true
+		}
+	}
+	return false
+}
+
 func normalizeRegistrationEmailSuffixWhitelist(raw []string, strict bool) ([]string, error) {
 	if len(raw) == 0 {
 		return nil, nil

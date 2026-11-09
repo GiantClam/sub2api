@@ -39,7 +39,7 @@ func (r *accountRepository) RecoverExpiredOpenAI403Cooldowns(ctx context.Context
 	if err != nil {
 		return 0, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var accountIDs []int64
 	for rows.Next() {
 		var id int64

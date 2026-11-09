@@ -311,12 +311,18 @@ func quoteRechargeBonus(cfg *PaymentConfig, paymentAmount float64, currency stri
 		quote.Bonus = bonus
 		quote.Percent = tier.BonusPercent
 	default:
-		bonus := decimal.NewFromFloat(base).Mul(decimal.NewFromFloat(tier.BonusPercent)).Div(decimal.NewFromInt(100)).Round(precision).InexactFloat64()
+		bonus := calculateRechargeBonus(base, tier.BonusPercent)
+		if balanceLedgerEnabled(cfg) {
+			bonus = decimal.NewFromFloat(base).Mul(decimal.NewFromFloat(tier.BonusPercent)).Div(decimal.NewFromInt(100)).Round(precision).InexactFloat64()
+		}
 		if bonus <= 0 {
 			return quote
 		}
 		quote.Bonus = bonus
-		quote.Credited = decimal.NewFromFloat(base).Add(decimal.NewFromFloat(bonus)).Round(precision).InexactFloat64()
+		quote.Credited = addRechargeBonus(base, bonus)
+		if balanceLedgerEnabled(cfg) {
+			quote.Credited = decimal.NewFromFloat(base).Add(decimal.NewFromFloat(bonus)).Round(precision).InexactFloat64()
+		}
 		quote.Percent = tier.BonusPercent
 	}
 	return quote

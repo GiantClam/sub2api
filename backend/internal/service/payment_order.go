@@ -346,10 +346,6 @@ func paymentOrderSnapshotWxpayAppID(sel *payment.InstanceSelection, req CreateOr
 	return strings.TrimSpace(sel.Config["appId"])
 }
 
-func (s *PaymentService) checkDailyLimit(ctx context.Context, tx *dbent.Tx, userID int64, amount, limit float64) error {
-	return s.checkDailyLimitWithLedger(ctx, tx, userID, amount, limit, nil)
-}
-
 func (s *PaymentService) checkDailyLimitWithLedger(ctx context.Context, tx *dbent.Tx, userID int64, amount, limit float64, cfg *PaymentConfig) error {
 	if limit <= 0 {
 		return nil

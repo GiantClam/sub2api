@@ -256,7 +256,9 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 	if group != nil && requestedModel != "" &&
 		modelRoutingAppliesToPlatform(platform, group.Platform) {
 		routingAccountIDs = group.GetRoutingAccountIDs(requestedModel)
-		routingRanks = modelRoutingRanks(routingAccountIDs)
+		if modelRoutingUsesExplicitOrder(requestedModel) {
+			routingRanks = modelRoutingRanks(routingAccountIDs)
+		}
 		if s.debugModelRoutingEnabled() {
 			logger.LegacyPrintf("service.gateway", "[ModelRoutingDebug] context group routing: group_id=%d model=%s enabled=%v rules=%d matched_ids=%v session=%s sticky_account=%d",
 				group.ID, requestedModel, group.ModelRoutingEnabled, len(group.ModelRouting), routingAccountIDs, shortSessionHash(sessionHash), stickyAccountID)
@@ -351,7 +353,7 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 					"in_account_map", func() bool { _, ok := accountByID[stickyAccountID]; return ok }(),
 					"session", shortSessionHash(sessionHash),
 				)
-				if isPrimaryModelRoutingAccount(routingAccountIDs, stickyAccountID) && !isExcluded(stickyAccountID) {
+				if isModelRoutingStickyAccount(requestedModel, routingAccountIDs, stickyAccountID) && !isExcluded(stickyAccountID) {
 					// 粘性账号在路由列表中，优先使用
 					if stickyAccount, ok := accountByID[stickyAccountID]; ok {
 						var stickyCacheMissReason string
@@ -938,8 +940,23 @@ func modelRoutingRanks(accountIDs []int64) map[int64]int {
 	return ranks
 }
 
+func modelRoutingUsesExplicitOrder(model string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(model))
+	if slash := strings.LastIndexByte(normalized, '/'); slash >= 0 {
+		normalized = normalized[slash+1:]
+	}
+	return normalized == "claude-opus-5-5-max"
+}
+
 func isPrimaryModelRoutingAccount(accountIDs []int64, accountID int64) bool {
 	return len(accountIDs) > 0 && accountIDs[0] == accountID
+}
+
+func isModelRoutingStickyAccount(model string, accountIDs []int64, accountID int64) bool {
+	if modelRoutingUsesExplicitOrder(model) {
+		return isPrimaryModelRoutingAccount(accountIDs, accountID)
+	}
+	return containsInt64(accountIDs, accountID)
 }
 
 func (s *GatewayService) resolveGatewayGroup(ctx context.Context, groupID *int64) (*Group, *int64, error) {
@@ -1928,6 +1945,9 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 	preferOAuth := platform == PlatformGemini
 	routingAccountIDs := s.routingAccountIDsForRequest(ctx, groupID, requestedModel, platform)
 	routingRanks := modelRoutingRanks(routingAccountIDs)
+	if !modelRoutingUsesExplicitOrder(requestedModel) {
+		routingRanks = map[int64]int{}
+	}
 
 	// require_privacy_set: 获取分组配置。GetByID 会聚合账号计数，旧选号路径不能用它。
 	var schedGroup *Group
@@ -1949,7 +1969,7 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 		// 1) Sticky session only applies if the bound account is within the routing set.
 		if sessionHash != "" && s.cache != nil {
 			accountID, err := s.cache.GetSessionAccountID(ctx, derefGroupID(groupID), sessionHash)
-			if err == nil && accountID > 0 && isPrimaryModelRoutingAccount(routingAccountIDs, accountID) {
+			if err == nil && accountID > 0 && isModelRoutingStickyAccount(requestedModel, routingAccountIDs, accountID) {
 				if _, excluded := excludedIDs[accountID]; !excluded {
 					account, err := s.getSchedulableAccount(ctx, accountID)
 					// 检查账号分组归属和平台匹配（确保粘性会话不会跨分组或跨平台）
@@ -2201,6 +2221,9 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 	preferOAuth := nativePlatform == PlatformGemini
 	routingAccountIDs := s.routingAccountIDsForRequest(ctx, groupID, requestedModel, nativePlatform)
 	routingRanks := modelRoutingRanks(routingAccountIDs)
+	if !modelRoutingUsesExplicitOrder(requestedModel) {
+		routingRanks = map[int64]int{}
+	}
 
 	// require_privacy_set: 获取分组配置。GetByID 会聚合账号计数，旧选号路径不能用它。
 	var schedGroup *Group
@@ -2220,7 +2243,7 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 		// 1) Sticky session only applies if the bound account is within the routing set.
 		if sessionHash != "" && s.cache != nil {
 			accountID, err := s.cache.GetSessionAccountID(ctx, derefGroupID(groupID), sessionHash)
-			if err == nil && accountID > 0 && isPrimaryModelRoutingAccount(routingAccountIDs, accountID) {
+			if err == nil && accountID > 0 && isModelRoutingStickyAccount(requestedModel, routingAccountIDs, accountID) {
 				if _, excluded := excludedIDs[accountID]; !excluded {
 					account, err := s.getSchedulableAccount(ctx, accountID)
 					// 检查账号分组归属和有效性：原生平台直接匹配，antigravity 需要启用混合调度

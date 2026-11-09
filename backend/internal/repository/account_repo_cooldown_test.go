@@ -16,7 +16,7 @@ import (
 func TestAccountRepositoryRecoverExpiredOpenAI403CooldownsIsAtomicAndGuarded(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	var query string
 	var args []any
 	repo := newAccountRepositoryWithSQL(nil, captureQuerySQL{db: db, captured: &query, args: &args}, nil)
@@ -52,7 +52,7 @@ func TestAccountRepositoryRecoverExpiredOpenAI403CooldownsHandlesEmptyAndFailedW
 		t.Run(scenario, func(t *testing.T) {
 			db, mock, err := sqlmock.New()
 			require.NoError(t, err)
-			defer db.Close()
+			defer func() { _ = db.Close() }()
 			repo := newAccountRepositoryWithSQL(nil, db, nil)
 			expectation := mock.ExpectQuery("WITH updated AS")
 			switch scenario {

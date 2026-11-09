@@ -86,7 +86,7 @@ func (w *CloudflareEmailWebhook) Send(ctx context.Context, input CloudflareEmail
 	if err != nil {
 		return fmt.Errorf("call cloudflare email webhook: %w", err)
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
 		// Worker/proxy errors can echo the signed payload, including verification
 		// codes. Queue workers log this error, so report only the numeric status.
